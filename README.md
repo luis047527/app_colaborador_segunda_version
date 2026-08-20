@@ -74,3 +74,23 @@ Despliegue        ⏳
 ```
 
 **Próximo paso:** crear la arquitectura del proyecto Flutter.
+
+
+Ejemplos de horarios:
+
+Horario Full time:
+Lunes a Sábado de 10:00 am a 01:00 pm y de 02:00 pm a 07:00 pm
+
+Horario Part Time:
+Lunes a sábado de 03:00 pm a 07:00 pm
+
+Horario Flexible:
+Lunes y martes de 03:00 pm a 07:00 pm
+Miércoles  10:00 am a 02:00 pm
+Jueves y viernes 03:00 pm a 07:00 pm
+Sábado 10:00 am a 12:30 pm y de 02:30 pm a 07:00 pm
+
+Horario Rotativo:
+Enero turno mañana 07:00 am a 03:00 pm
+Febrero turno tarde 03:00 pm a 11:00 pm
+Marzo tuno noche 11:00 pm a 07:00 pm
