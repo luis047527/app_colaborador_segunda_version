@@ -30,10 +30,59 @@ Aplicación móvil de gestión de asistencia para Lumibell Studios.
 ## Arquitectura
 
 ```text
-Flutter → API REST → PHP → MySQL
+Flutter → API REST → Node.js → MySQL
 ```
 
-Desarrollo local con XAMPP y posterior despliegue en servidor/hosting.
+Desarrollo local con Docker y MySQL.
+
+## Base de datos MySQL con Docker
+
+Para desarrollar localmente, la base de datos MySQL se ejecuta en un contenedor Docker:
+
+### Configuración actual
+
+- **Contenedor**: `mysql_db`
+- **Imagen**: `mysql:8.0`
+- **Puerto**: 3306 (host → container)
+- **Base de datos**: `appdb` (creada automáticamente)
+- **Usuario**: `appuser` / `apppassword`
+
+### Credenciales de acceso
+
+| Componente | Usuario | Contraseña | Host |
+|------------|---------|------------|------|
+| Root | `root` | `rootpassword` | `localhost:3306` |
+| Aplicación | `appuser` | `apppassword` | `db` (nombre del contenedor) |
+
+### Cómo conectar
+
+**Desde el contenedor Node.js:**
+Las variables de entorno en `docker-compose.yml` configuraron automáticamente:
+- `DB_HOST: db`
+- `DB_PORT: 3306`
+- `DB_USER: appuser`
+- `DB_PASSWORD: apppassword`
+- `DB_NAME: appdb`
+
+**Desde host local (opcional):**
+```bash
+mysql -u root -prootpassword -h localhost -P 3306
+# O con el usuario de la app:
+mysql -u appuser -papppassword -h localhost -P 3306 db
+```
+
+### Detener y reiniciar
+
+```bash
+# Detener contenedor
+docker stop mysql_db
+
+# Iniciar nuevamente
+docker start mysql_db
+
+# Ver logs
+docker logs mysql_db
+```
 
 ## Pasos realizados
 
