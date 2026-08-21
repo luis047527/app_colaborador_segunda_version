@@ -39,13 +39,52 @@ Desarrollo local con Docker y MySQL.
 
 Para desarrollar localmente, la base de datos MySQL se ejecuta en un contenedor Docker:
 
-### Configuración actual
+### Opción 1: Usando docker run (comando directo)
 
-- **Contenedor**: `mysql_db`
-- **Imagen**: `mysql:8.0`
+```bash
+docker run -d --name mysql_db \
+  -e MYSQL_ROOT_PASSWORD=rootpassword \
+  -e MYSQL_DATABASE=appdb \
+  -e MYSQL_USER=appuser \
+  -e MYSQL_PASSWORD=apppassword \
+  -p 3306:3306 \
+  -v mysql_data:/var/lib/mysql \
+  mysql:8.0
+```
+
+### Opción 2: Usando Dockerfile (construir imagen personalizada)
+
+Con un Dockerfile personalizado, puedes construir y iniciar la base de datos así. El `Dockerfile.db` incluye un script de inicialización automático:
+
+```bash
+# 1. Construir la imagen (ejecuta init-db.sql automáticamente)
+docker build -t my-mysql-db -f Dockerfile.db .
+
+# 2. Ejecutar el contenedor
+docker run -d --name mysql_db \
+  -p 3306:3306 \
+  -v mysql_data:/var/lib/mysql \
+  my-mysql-db
+```
+
+**`init-db.sql`**: Este script se copia automáticamente a `/docker-entrypoint-initdb.d/` y ejecuta las siguientes acciones al iniciar el contenedor:
+- Crea la base de datos `appdb`
+- Crea el usuario `appuser` con password `apppassword`
+- Otorga todos los privilegios sobre `appdb`
+
+```bash
+# Verificar que el script se ejecutó correctamente
+docker exec mysql_db mysql -u root -prootpassword -e "SHOW DATABASES;"
+# Deberías ver: appdb, information_schema, mysql, performance_schema, sys
+```
+
+### Configuración actual (ambos métodos)
+
+- **Imagen**: `mysql:8.0` (o tu imagen personalizada `my-mysql-db`)
 - **Puerto**: 3306 (host → container)
 - **Base de datos**: `appdb` (creada automáticamente)
-- **Usuario**: `appuser` / `apppassword`
+- **Usuario root**: `root` / `rootpassword`
+- **Usuario aplicación**: `appuser` / `apppassword`
 
 ### Credenciales de acceso
 
@@ -66,8 +105,10 @@ Las variables de entorno en `docker-compose.yml` configuraron automáticamente:
 
 **Desde host local (opcional):**
 ```bash
+# Con root
 mysql -u root -prootpassword -h localhost -P 3306
-# O con el usuario de la app:
+
+# Con usuario de la app
 mysql -u appuser -papppassword -h localhost -P 3306 db
 ```
 
@@ -82,6 +123,9 @@ docker start mysql_db
 
 # Ver logs
 docker logs mysql_db
+
+# Reconstruir imagen (solo con Dockerfile)
+docker build -t my-mysql-db -f Dockerfile.db .
 ```
 
 ## Pasos realizados
