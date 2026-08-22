@@ -99,6 +99,23 @@ curl http://localhost:3000   # → hello node
 docker compose down
 ```
 
+### Aplicar esquema y usuarios de desarrollo
+
+Si el volumen `mysql_data` ya existía, MySQL no vuelve a ejecutar automáticamente los archivos de `/docker-entrypoint-initdb.d/`. Para aplicar el esquema y los usuarios seed sin borrar datos:
+
+```powershell
+.\scripts\apply-db-scripts.ps1
+```
+
+En macOS o Linux:
+
+```bash
+chmod +x ./scripts/apply-db-scripts.sh
+./scripts/apply-db-scripts.sh
+```
+
+Ambos scripts aplican `sql/01_schema_login.sql` si falta la tabla `usuarios` y `sql/02_seed_login.sql` si todavía no hay usuarios.
+
 > Nota: si existe un contenedor llamado `mysql_db` creado manualmente con `docker run`, elimínalo primero (`docker rm -f mysql_db`) para evitar conflictos de nombre.
 
 ### Configuración actual (ambos métodos)
