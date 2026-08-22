@@ -1,0 +1,16 @@
+FROM mysql:8.0
+
+# Set environment variables for MySQL
+ENV MYSQL_ROOT_PASSWORD=rootpassword
+ENV MYSQL_DATABASE=appdb
+ENV MYSQL_USER=appuser
+ENV MYSQL_PASSWORD=apppassword
+
+# Copy initialization scripts (optional)
+COPY init-db.sql /docker-entrypoint-initdb.d/
+
+# Expose MySQL port
+EXPOSE 3306
+
+# Start MySQL
+CMD ["mysqld"]
