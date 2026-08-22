@@ -78,6 +78,29 @@ docker exec mysql_db mysql -u root -prootpassword -e "SHOW DATABASES;"
 # Deberías ver: appdb, information_schema, mysql, performance_schema, sys
 ```
 
+### Opción 3: Usando Docker Compose (recomendado)
+
+`docker-compose.yml` levanta los dos servicios juntos:
+
+- **`db`**: MySQL 8.0 construido desde `Dockerfile.db` (ejecuta `init-db.sql` automáticamente), con volumen persistente `mysql_data` y healthcheck.
+- **`server`**: Node.js + Express construido desde `server/Dockerfile`, con las variables `DB_HOST=db`, `DB_PORT=3306`, `DB_USER=appuser`, `DB_PASSWORD=apppassword`, `DB_NAME=appdb`. Arranca cuando la base de datos está healthy (`depends_on`).
+
+```bash
+# Levantar ambos servicios
+docker compose up --build -d
+
+# Verificar estado
+docker compose ps
+
+# Probar el servidor
+curl http://localhost:3000   # → hello node
+
+# Detener todo
+docker compose down
+```
+
+> Nota: si existe un contenedor llamado `mysql_db` creado manualmente con `docker run`, elimínalo primero (`docker rm -f mysql_db`) para evitar conflictos de nombre.
+
 ### Configuración actual (ambos métodos)
 
 - **Imagen**: `mysql:8.0` (o tu imagen personalizada `my-mysql-db`)
