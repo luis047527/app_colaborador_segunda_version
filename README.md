@@ -139,34 +139,25 @@ flutter analyze
 code .
 ```
 
-## Próximos pasos
+## Progreso
 
-1. Crear arquitectura Flutter.
-2. Diseñar base de datos MySQL.
-3. Crear backend PHP y APIs.
-4. Implementar Login.
-5. Implementar Inicio, Registrar, Historial, Solicitudes y Perfil.
-6. Implementar QR, GPS y cámara.
-7. Implementar aprobaciones y horas compensables.
-8. Integrar Flutter + PHP + MySQL.
-9. Probar y corregir.
-10. Desplegar.
+- [x] Requisitos definidos.
+- [x] Proyecto Flutter creado (`flutter create`, `pub get`, `analyze`).
+- [x] Arquitectura definida: Flutter → API REST → Node.js → MySQL.
+- [x] Base de datos MySQL con Docker (`Dockerfile.db` + `init-db.sql`).
+- [x] Servidor base Node.js con Express (puerto 3000, responde `hello node`).
+- [ ] Diseñar tablas del esquema MySQL.
+- [ ] Crear APIs REST en el backend Node.js.
+- [ ] Definir arquitectura Flutter.
+- [ ] Implementar Login.
+- [ ] Implementar Inicio, Registrar, Historial, Solicitudes y Perfil.
+- [ ] Implementar QR, GPS y cámara.
+- [ ] Implementar aprobaciones y horas compensables.
+- [ ] Integrar Flutter + Node.js + MySQL.
+- [ ] Probar y corregir.
+- [ ] Desplegar.
 
-## Estado
-
-```text
-Requisitos       ✅
-Proyecto Flutter ✅
-Arquitectura     ⏳
-Base de datos     ⏳
-Backend PHP       ⏳
-Interfaces        ⏳
-Integración       ⏳
-Pruebas           ⏳
-Despliegue        ⏳
-```
-
-**Próximo paso:** crear la arquitectura del proyecto Flutter.
+**Próximo paso:** diseñar las tablas del esquema MySQL.
 
 
 Ejemplos de horarios:
