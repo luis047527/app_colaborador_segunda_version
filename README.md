@@ -179,25 +179,71 @@ flutter analyze
 code .
 ```
 
-## Progreso
+## Progreso por Módulos
 
-- [x] Requisitos definidos.
-- [x] Proyecto Flutter creado (`flutter create`, `pub get`, `analyze`).
-- [x] Arquitectura definida: Flutter → API REST → Node.js → MySQL.
-- [x] Base de datos MySQL con Docker (`Dockerfile.db` + `init-db.sql`).
-- [x] Servidor base Node.js con Express (puerto 3000, responde `hello node`).
-- [ ] Diseñar tablas del esquema MySQL.
-- [ ] Crear APIs REST en el backend Node.js.
-- [ ] Definir arquitectura Flutter.
-- [ ] Implementar Login.
-- [ ] Implementar Inicio, Registrar, Historial, Solicitudes y Perfil.
-- [ ] Implementar QR, GPS y cámara.
-- [ ] Implementar aprobaciones y horas compensables.
-- [ ] Integrar Flutter + Node.js + MySQL.
-- [ ] Probar y corregir.
-- [ ] Desplegar.
+Cada módulo cumple 4 tareas: actualizar esquema de base de datos, actualizar API, crear pantallas, conectar pantallas con API.
 
-**Próximo paso:** diseñar las tablas del esquema MySQL.
+- [x] Base inicial
+  - [x] Requisitos definidos.
+  - [x] Proyecto Flutter creado (`flutter create`, `pub get`, `analyze`).
+  - [x] Arquitectura definida: Flutter → API REST → Node.js → MySQL.
+  - [x] Base de datos MySQL con Docker (`Dockerfile.db` + `init-db.sql`).
+  - [x] Servidor base Node.js con Express (puerto 3000, responde `hello node`).
+
+- [x] Módulo 1: Login
+  - [x] Actualizar esquema de base de datos (`sql/01_schema_login.sql` usuarios/sedes/empleados + `sql/02_seed_login.sql`)
+  - [x] Actualizar API (`server/routes/auth.js` POST /login, `server/routes/usuarios.js` CRUD, `server/middleware/auth.js`)
+  - [x] Crear pantallas (`lib/screens/login/login_screen.dart`, `lib/main.dart`)
+  - [x] Conectar pantallas con API (`lib/services/auth_service.dart`, `lib/models/usuario.dart`, Provider + http)
+
+- [ ] Módulo 2: Inicio
+  - [ ] Actualizar esquema de base de datos
+  - [ ] Actualizar API
+  - [ ] Crear pantallas
+  - [ ] Conectar pantallas con API
+
+- [ ] Módulo 3: Registrar Asistencia (QR, GPS + foto)
+  - [ ] Actualizar esquema de base de datos
+  - [ ] Actualizar API
+  - [ ] Crear pantallas
+  - [ ] Conectar pantallas con API
+
+- [ ] Módulo 4: Historial
+  - [ ] Actualizar esquema de base de datos
+  - [ ] Actualizar API
+  - [ ] Crear pantallas
+  - [ ] Conectar pantallas con API
+
+- [ ] Módulo 5: Solicitudes (permisos, vacaciones, correcciones de asistencia)
+  - [ ] Actualizar esquema de base de datos
+  - [ ] Actualizar API
+  - [ ] Crear pantallas
+  - [ ] Conectar pantallas con API
+
+- [ ] Módulo 6: Aprobaciones y Horas Compensables
+  - [ ] Actualizar esquema de base de datos
+  - [ ] Actualizar API
+  - [ ] Crear pantallas
+  - [ ] Conectar pantallas con API
+
+- [ ] Módulo 7: Horarios (fijo, variable, rotativo, flexible, personalizado)
+  - [ ] Actualizar esquema de base de datos
+  - [ ] Actualizar API
+  - [ ] Crear pantallas
+  - [ ] Conectar pantallas con API
+
+- [ ] Módulo 8: Perfil
+  - [ ] Actualizar esquema de base de datos
+  - [ ] Actualizar API
+  - [ ] Crear pantallas
+  - [ ] Conectar pantallas con API
+
+- [ ] Integración final, pruebas y despliegue
+  - [ ] Integrar Flutter + Node.js + MySQL
+  - [ ] Probar y corregir
+  - [ ] Desplegar
+
+**Próximo paso:** Módulo 2 — Inicio.
 
 
 Ejemplos de horarios:
