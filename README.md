@@ -114,7 +114,7 @@ chmod +x ./scripts/apply-db-scripts.sh
 ./scripts/apply-db-scripts.sh
 ```
 
-Ambos scripts aplican `sql/01_schema_login.sql` si falta la tabla `usuarios` y `sql/02_seed_login.sql` si todavía no hay usuarios.
+Ambos scripts aplican `sql/01_schema_login.sql` si falta la tabla `usuarios`, `sql/02_seed_login.sql` si todavía no hay usuarios y `sql/03_schema_inicio.sql` si falta la tabla `marcaciones`.
 
 > Nota: si existe un contenedor llamado `mysql_db` creado manualmente con `docker run`, elimínalo primero (`docker rm -f mysql_db`) para evitar conflictos de nombre.
 
@@ -197,8 +197,8 @@ Cada módulo cumple 4 tareas: actualizar esquema de base de datos, actualizar AP
   - [x] Conectar pantallas con API (`lib/services/auth_service.dart`, `lib/models/usuario.dart`, Provider + http)
 
 - [ ] Módulo 2: Inicio
-  - [ ] Actualizar esquema de base de datos
-  - [ ] Actualizar API
+  - [x] Actualizar esquema de base de datos (`sql/03_schema_inicio.sql` marcaciones/balances_diarios/notificaciones)
+  - [x] Actualizar API (`server/routes/inicio.js` GET /api/inicio/resumen, `server/middleware/auth.js`)
   - [ ] Crear pantallas
   - [ ] Conectar pantallas con API
 
