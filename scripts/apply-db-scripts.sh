@@ -21,6 +21,15 @@ else
   echo "El esquema de login ya existe; no se modifica."
 fi
 
+# Esquema Inicio (marcaciones, balances_diarios, notificaciones)
+inicio_tables="$(${mysql[@]} -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${database}' AND table_name = 'marcaciones';")"
+if [[ "${inicio_tables}" == "0" ]]; then
+  echo "Aplicando esquema Inicio..."
+  docker exec -i "${container}" mysql "-u${db_user}" "-p${db_password}" "-D${database}" < "$(dirname "$0")/../sql/03_schema_inicio.sql"
+else
+  echo "El esquema de Inicio ya existe; no se modifica."
+fi
+
 user_count="$(${mysql[@]} -Nse 'SELECT COUNT(*) FROM usuarios;')"
 if [[ "${user_count}" == "0" ]]; then
   echo "Aplicando usuarios seed..."
@@ -31,3 +40,4 @@ fi
 
 echo "Base de datos lista para probar login."
 "${mysql[@]}" -e 'SELECT id, email, rol, estado FROM usuarios ORDER BY id;'
+"${mysql[@]}" -e 'SHOW TABLES;'

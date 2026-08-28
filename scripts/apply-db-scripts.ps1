@@ -21,6 +21,14 @@ if ($tables.Trim() -eq '0') {
     Write-Host 'El esquema de login ya existe; no se modifica.'
 }
 
+$inicioTables = docker exec $container mysql $mysqlUser $mysqlPassword $mysqlDatabase '-Nse' "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$database' AND table_name = 'marcaciones';"
+if ($inicioTables.Trim() -eq '0') {
+    Write-Host 'Aplicando esquema Inicio...'
+    Get-Content -Raw "$PSScriptRoot\..\sql\03_schema_inicio.sql" | docker exec -i $container mysql $mysqlUser $mysqlPassword $mysqlDatabase
+} else {
+    Write-Host 'El esquema de Inicio ya existe; no se modifica.'
+}
+
 $userCount = docker exec $container mysql $mysqlUser $mysqlPassword $mysqlDatabase '-Nse' "SELECT COUNT(*) FROM usuarios;"
 if ($userCount.Trim() -eq '0') {
     Write-Host 'Aplicando usuarios seed...'
@@ -31,3 +39,4 @@ if ($userCount.Trim() -eq '0') {
 
 Write-Host 'Base de datos lista para probar login.'
 docker exec $container mysql $mysqlUser $mysqlPassword $mysqlDatabase '-e' "SELECT id, email, rol, estado FROM usuarios ORDER BY id;"
+docker exec $container mysql $mysqlUser $mysqlPassword $mysqlDatabase '-e' "SHOW TABLES;"

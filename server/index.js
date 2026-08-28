@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
 const usuarioRoutes = require('./routes/usuarios');
+const inicioRoutes = require('./routes/inicio');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -19,6 +20,7 @@ app.get('/health', async (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/inicio', inicioRoutes);
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
