@@ -6,6 +6,36 @@ const usuarioRoutes = require('./routes/usuarios');
 const app = express();
 const port = process.env.PORT || 3000;
 
+const configuredOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+function isAllowedOrigin(origin) {
+  // Flutter Web usa un puerto local variable en desarrollo.
+  const isLocalFlutterWeb = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  return isLocalFlutterWeb || configuredOrigins.includes(origin);
+}
+
+app.use((req, res, next) => {
+  const origin = req.get('origin');
+
+  if (origin && isAllowedOrigin(origin)) {
+    res.set({
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      Vary: 'Origin',
+    });
+  }
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 app.use(express.json());
 
 app.get('/health', async (_req, res) => {

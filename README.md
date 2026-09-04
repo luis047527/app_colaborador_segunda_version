@@ -35,6 +35,28 @@ Flutter → API REST → Node.js → MySQL
 
 Desarrollo local con Docker y MySQL.
 
+## URL de la API en Flutter
+
+La URL base se centraliza en `lib/config/app_config.dart`. Por defecto es
+`http://localhost:3000`, adecuado para web y Windows. Se puede sobrescribir
+sin modificar codigo con `--dart-define`:
+
+```powershell
+# Chrome o Windows
+flutter run --dart-define=API_BASE_URL=http://localhost:3000
+
+# Emulador Android
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
+```
+
+En un telefono fisico, reemplaza la URL por la IP LAN del equipo que ejecuta
+la API, por ejemplo `http://192.168.1.10:3000`.
+
+La API permite peticiones CORS desde `localhost` y `127.0.0.1` para que
+Flutter Web pueda comunicarse desde su puerto de desarrollo. Para autorizar
+otros orÃ­genenes en un despliegue, define `CORS_ORIGINS` con una lista separada
+por comas.
+
 ## Base de datos MySQL con Docker
 
 Para desarrollar localmente, la base de datos MySQL se ejecuta en un contenedor Docker:

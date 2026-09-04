@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 import '../models/usuario.dart';
 
 class AuthException implements Exception {
@@ -9,11 +10,6 @@ class AuthException implements Exception {
 }
 
 class AuthService extends ChangeNotifier {
-  static const String _baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:3000',
-  );
-
   String? _token;
   Usuario? _usuario;
 
@@ -22,7 +18,7 @@ class AuthService extends ChangeNotifier {
   bool get isAuthenticated => _token != null;
 
   Future<void> login(String email, String password) async {
-    final uri = Uri.parse('$_baseUrl/api/auth/login');
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/auth/login');
     final response = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
