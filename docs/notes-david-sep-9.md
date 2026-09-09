@@ -33,6 +33,9 @@
 - Tests (`server/tests/`, `npm test`, pool mockeado, sin DB ni deps nuevas): 74/74 — login (6), usuarios (16), empleados POST (12) + PUT (9), horarios (12), sedes (8), horario-hoy (9), docs (2)
 - Docs OpenAPI (JSDoc en rutas + swagger-ui): UI en /api-docs, JSON en /api-docs.json; tests verifican las 17 rutas
 - MVP cuts (detalle abajo): sin overnight (`salida > entrada`), llegada anticipada se clampeada a programada, `horas_requeridas` calculadas por dia (no almacenadas)
+- **Frontend Semana 1** (`feature/semana-1-frontend-test` 60cae68): scaffold `HomeScreen` (Inicio/Horario/Perfil + `Admin` role-based), `Inicio/ Horario/ Perfil` placeholders, `AuthService` `http.Client` injection; tests `test/` 21/21 (usuario 2, auth 6, app_config 1, login 5, home 3, inicio/perfil 3, app 1) + `flutter analyze` clean. Ver §5.
+- **Frontend admin CRUD** (361f9a5): `usuario/sede/empleado/horario` services (`lib/services/*_service.dart`) + 5 admin screens (`lib/screens/admin/` create_usuario/sede/empleado/horario + assign_horario + menu) + `Home` Admin tab (ADMIN 4 tabs). Tests 32/32 (services 7 + admin_menu 4 + previos 21). Ver §6.
+- **Cómo testear frontend (completo):** `export PATH="/usr/local/flutter/bin:$PATH" && flutter pub get && flutter analyze && flutter test --reporter expanded && flutter test --coverage` (esperado 32 passed, lcov 100% core). Smoke admin: `docker compose up --build -d` + `flutter run --dart-define=API_BASE_URL=http://localhost:3000` (web) / `10.0.2.2` (emulador) loguear `admin@lumibell.com / Lumibell2026` → `Admin` → crear flujo `Sede → Horario (7 dias) → Usuario → Empleado → Asignar` → verificar `horario-hoy`.
 
 ## TODO
 - Supervisor (§5.2/§5.12): modelar (propuesta self-FK `empleados.supervisor_id`), endpoints asignar/consultar

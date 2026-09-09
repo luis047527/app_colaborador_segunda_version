@@ -46,3 +46,6 @@ app.*.map.json
 
 # Node
 node_modules/
+
+# Flutter coverage
+coverage/
