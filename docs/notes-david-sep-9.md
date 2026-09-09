@@ -30,13 +30,13 @@
 - Fresh rebuild applied via `docker compose down -v && docker compose up --build` (no migration needed, DB was fresh)
 - API: POST /api/empleados + PUT /api/empleados/:id (sede/horario assignment, traslado) + GET /api/empleados/:id/horario-hoy, /api/sedes CRUD (DELETE lógico a INACTIVA), POST /api/horarios (header + 7 dias transaccional) + GET /api/horarios/:id
 - Marcaciones tabla `04_marcaciones.sql` wired en `Dockerfile.db`, rebuild aplicado (6 tablas + seeds OK)
-- Tests (`server/tests/`, `npm test`, pool mockeado, sin DB ni deps nuevas): 74/74 — login (6), usuarios (16), empleados POST (12) + PUT (9), horarios (12), sedes (8), horario-hoy (9), docs (2)
+- Tests (`server/tests/`, `npm test`, pool mockeado, sin DB ni deps nuevas): 82/82 — login (6), usuarios (16), empleados POST (12) + PUT (9), horarios (12), sedes (8), horario-hoy (9), docs (2), roles (8)
 - Docs OpenAPI (JSDoc en rutas + swagger-ui): UI en /api-docs, JSON en /api-docs.json; tests verifican las 17 rutas
 - MVP cuts (detalle abajo): sin overnight (`salida > entrada`), llegada anticipada se clampeada a programada, `horas_requeridas` calculadas por dia (no almacenadas)
 
 ## TODO
 - Supervisor (§5.2/§5.12): modelar (propuesta self-FK `empleados.supervisor_id`), endpoints asignar/consultar
-- Role guards: middleware solo-ADMIN en escrituras (hoy cualquier logueado puede crear); SUPERVISOR lectura + COLABORADOR solo lo suyo (horario-hoy ya lo aplica)
+- Role guards: `server/middleware/roles.js` aplicado (escrituras ADMIN; lectura ADMIN/SUPERVISOR; COLABORADOR propio en GET/PUT usuarios + horario-hoy; sedes lectura abierta); tests `roles.test.js` (8)
 - Marcaciones endpoints (Semana 2): POST/GET /api/marcaciones sobre tabla 04 (diseño en "Marcaciones decisions")
 - Seeds: 3 horarios template (full/part/flexible) para piloto
 - QR dinámico con token temporal (hoy estático `LUMIBELL-SEDE-{id}`)

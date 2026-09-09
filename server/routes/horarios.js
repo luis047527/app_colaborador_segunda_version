@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const verificarToken = require('../middleware/auth');
+const { requerirRol } = require('../middleware/roles');
 
 const router = express.Router();
 
@@ -88,7 +89,7 @@ function validarDias(dias) {
  *       400:
  *         description: Días incompletos, overnight, refs u horas inválidas
  */
-router.post('/', async (req, res) => {
+router.post('/', requerirRol('ADMINISTRADOR'), async (req, res) => {
   const { nombre, descripcion, tolerancia_minutos, vigencia_desde, vigencia_hasta, dias } =
     req.body || {};
 
@@ -167,7 +168,7 @@ router.post('/', async (req, res) => {
  *       404:
  *         description: No encontrado
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (req, res) => {
   try {
     const [cab] = await pool.query('SELECT * FROM horarios WHERE id = ?', [req.params.id]);
     if (cab.length === 0) {

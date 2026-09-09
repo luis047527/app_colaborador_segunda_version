@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const verificarToken = require('../middleware/auth');
+const { requerirRol, permitirPropio } = require('../middleware/roles');
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.use(verificarToken);
  *       409:
  *         description: Email duplicado
  */
-router.get('/', async (_req, res) => {
+router.get('/', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (_req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT id, nombre, apellido, email, foto_url, rol, estado, ultimo_acceso, created_at, updated_at FROM usuarios ORDER BY id'
@@ -118,7 +119,7 @@ router.get('/', async (_req, res) => {
  *       404:
  *         description: No encontrado
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', permitirPropio('ADMINISTRADOR', 'SUPERVISOR'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT id, nombre, apellido, email, foto_url, rol, estado, ultimo_acceso, created_at, updated_at FROM usuarios WHERE id = ?',
@@ -133,7 +134,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requerirRol('ADMINISTRADOR'), async (req, res) => {
   const { nombre, apellido, email, password, rol, foto_url } = req.body || {};
   if (!nombre || !apellido || !email || !password || !rol) {
     return res.status(400).json({ error: 'nombre, apellido, email, password y rol son obligatorios' });
@@ -158,7 +159,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', permitirPropio('ADMINISTRADOR'), async (req, res) => {
   const permitidos = ['nombre', 'apellido', 'email', 'foto_url', 'rol', 'estado'];
   const cambios = {};
   for (const campo of permitidos) {
@@ -166,6 +167,13 @@ router.put('/:id', async (req, res) => {
   }
   if (Object.keys(cambios).length === 0 && req.body?.password === undefined) {
     return res.status(400).json({ error: 'No hay campos para actualizar' });
+  }
+  // No-admin solo edita su perfil básico; rol/estado/email son privilegio ADMIN.
+  if (
+    req.usuario.rol !== 'ADMINISTRADOR' &&
+    (cambios.rol !== undefined || cambios.estado !== undefined || cambios.email !== undefined)
+  ) {
+    return res.status(403).json({ error: 'No autorizado' });
   }
   try {
     const [existe] = await pool.query('SELECT id FROM usuarios WHERE id = ?', [req.params.id]);
@@ -206,7 +214,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requerirRol('ADMINISTRADOR'), async (req, res) => {
   try {
     const [result] = await pool.query("UPDATE usuarios SET estado = 'INACTIVO' WHERE id = ?", [
       req.params.id,

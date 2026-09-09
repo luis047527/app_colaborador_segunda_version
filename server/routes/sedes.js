@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const verificarToken = require('../middleware/auth');
+const { requerirRol } = require('../middleware/roles');
 
 const router = express.Router();
 
@@ -137,7 +138,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requerirRol('ADMINISTRADOR'), async (req, res) => {
   const { nombre, direccion, latitud, longitud, radio_permitido_metros, estado } = req.body || {};
   if (!nombre || !direccion || latitud === undefined || longitud === undefined || radio_permitido_metros === undefined) {
     return res.status(400).json({
@@ -163,7 +164,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', requerirRol('ADMINISTRADOR'), async (req, res) => {
   const cambios = {};
   for (const campo of EDITABLES) {
     if (req.body?.[campo] !== undefined) cambios[campo] = req.body[campo];
@@ -195,7 +196,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requerirRol('ADMINISTRADOR'), async (req, res) => {
   try {
     const [result] = await pool.query("UPDATE sedes SET estado = 'INACTIVA' WHERE id = ?", [
       req.params.id,

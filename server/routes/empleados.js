@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const verificarToken = require('../middleware/auth');
+const { requerirRol } = require('../middleware/roles');
 const { fechaLimaYMD, diaSemanaLima, minutosDesdeHora } = require('../utils/fecha');
 
 const router = express.Router();
@@ -117,7 +118,7 @@ const EDITABLES = [
  *       409:
  *         description: Usuario ya asignado o código duplicado
  */
-router.post('/', async (req, res) => {
+router.post('/', requerirRol('ADMINISTRADOR'), async (req, res) => {
   const {
     usuario_id,
     codigo_empleado,
@@ -258,7 +259,7 @@ router.post('/', async (req, res) => {
  *       409:
  *         description: Código duplicado
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requerirRol('ADMINISTRADOR'), async (req, res) => {
   const cambios = {};
   for (const campo of EDITABLES) {
     if (req.body?.[campo] !== undefined) cambios[campo] = req.body[campo];
