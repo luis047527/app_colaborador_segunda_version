@@ -25,12 +25,12 @@
 - API call directly to SQL, no controller, service, model layers
 
 ## Progress
-- removed database constraints to allow evolve. Will handle validations in API
-- kept mandatory only: PKs, NOT NULLs, uq_usuarios_email, uq_empleados_usuario/codigo, fk_empleados_usuario/sede RESTRICT, chk_empleados_fechas
-- run `docker compose down -v` and `docker compose up --build` to get new database
-- added Tests (`server/tests/`, `npm test`, pool mockeado): POST /api/auth/login, /api/usuarios, POST /api/empleados
-- added Horarios endpoint  (/api/horarios/)
-- added method to re-assign sede to empleado (PUT /api/empleados/)
+- DB constraints: removed enum CHECKs, validations moved to API. Kept mandatory only: PKs, NOT NULLs, uq_usuarios_email, uq_empleados_usuario/codigo, fk_empleados_usuario/sede RESTRICT, chk_empleados_fechas (`sql/01_schema_login.sql`)
+- New tables `horarios` + `horario_dias` (`sql/03_horarios.sql`, wired in `Dockerfile.db`); `empleados.horario_id FK NULL` (one horario per empleado, NULL = unassigned)
+- Fresh rebuild applied via `docker compose down -v && docker compose up --build` (no migration needed, DB was fresh)
+- API: POST /api/empleados + PUT /api/empleados/:id (sede/horario assignment, traslado), /api/sedes CRUD (DELETE lógico a INACTIVA), POST /api/horarios (header + 7 dias transaccional) + GET /api/horarios/:id
+- Tests (`server/tests/`, `npm test`, pool mockeado, sin DB ni deps nuevas): 63/63 — login (6), usuarios (16), empleados POST (12) + PUT (9), horarios (12), sedes (8)
+- MVP cuts (detalle abajo): sin overnight (`salida > entrada`), llegada anticipada se clampeada a programada, `horas_requeridas` calculadas por dia (no almacenadas)
 
 ## Horarios design (chat sep-9)
 - Decision: 2 tables `horarios` (header) + `horario_dias` (7 rows per horario).
@@ -75,4 +75,13 @@
 - Decision: `salida > entrada` always (same calendar day). Night shift 23->07 NOT supported in MVP.
 - Enforcement: API-only (no DB CHECK per evolve decision). `POST/PUT /horarios` validates `salida > entrada` and `entrada <= ref_ini < ref_fin <= salida`, else 400. Calc engine assumes same-day, no +24h logic, no open-prev-day lookup.
 - Consequence: rotativo Mar noche 23-07 unrepresentable for now (posterior, like §6 rotativos avanzados). Revisit = drop validation + add +24h convention, zero schema change.
+
+## Marcaciones decisions (chat sep-9)
+- Table `marcaciones` (`sql/04_marcaciones.sql`): empleado_id FK, fecha DATE (jornada Lima), tipo (API list), timestamp_utc DATETIME (hora oficial), sede_id FK, lat/lon, distancia_metros, fuera_radio flag, resultado ACEPTADA/RECHAZADA + motivo. Index (empleado_id, fecha); NO unique (empleado, fecha, tipo) a propósito.
+- Hora oficial: UTC en DB (`timestamp_utc DEFAULT CURRENT_TIMESTAMP`, contenedor sin TZ fija). `fecha` Lima se deriva en API (Intl America/Lima). Conversión Lima↔UTC vive en el motor de cálculo (Semana 3), no en SQL.
+- QR estático en MVP: payload `LUMIBELL-SEDE-{id}` debe coincidir con `sede_id` enviado; backend valida formato + sede existe. QR dinámico (token temporal por sede) = TODO posterior (§5.4).
+- GPS flexible: Flutter envía lat/lon; backend calcula haversine vs sede (lat/lon + radio_permitido_metros). Fuera de radio o sin coords => se ACEPTA con `fuera_radio=1` / motivo info (auditoría). No se rechaza en piloto (emuladores/interiores).
+- Rechazos se guardan: secuencia rota, QR inválido, usuario/empleado inactivo, día descanso, duplicada => fila RECHAZADA + motivo, respuesta 4xx con la fila incluida. Sin empleado (JWT sin empleado) => 404 sin fila (FK lo impide).
+- Secuencia esperada (sobre aceptadas del día): sin horario o día sin refs => ENTRADA->SALIDA (2 pasos); con refs => ENTRADA->SAL_REF->REG_REF->SALIDA. Día descanso => todo se rechaza. Tipo ya aceptado => 409 duplicada; otro tipo fuera de orden => 422.
+- Endpoints: POST /api/marcaciones (empleado sale del JWT, nunca del body) + GET /api/marcaciones?empleado_id&desde&hasta (COLABORADOR solo ve las suyas).
 
