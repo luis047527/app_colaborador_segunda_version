@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
 const usuarioRoutes = require('./routes/usuarios');
+const empleadoRoutes = require('./routes/empleados');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -49,7 +50,12 @@ app.get('/health', async (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/empleados', empleadoRoutes);
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+  });
+}
+
+module.exports = app;

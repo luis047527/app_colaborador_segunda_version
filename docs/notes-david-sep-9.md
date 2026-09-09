@@ -17,7 +17,7 @@
   - PUT /api/auth/usuarios/:id 
   - DELETE /api/auth/usuarios/:id 
 - no endpoints to create usuarios
-- no endpoints to create empleado
+- POST /api/empleados/ (create empleado: usuario_id, codigo, cargo, modalidad, tipo_horario, sede_id?, horario_id?, fechas; validaciones en API)
 - no endpoints to create sedes
 - no endpoints to create horario
 - no endpoints to assign usuario to sede
