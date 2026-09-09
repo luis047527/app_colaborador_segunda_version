@@ -250,3 +250,43 @@ flutter pub get && flutter analyze && flutter test --reporter expanded && flutte
 
 **Próximo:** Semana 2 — marcaciones (QR+GPS), historial y cálculo, sobre `04_marcaciones.sql` + `POST/GET /api/marcaciones`.
 
+### 6. Frontend admin CRUD — create usuario/sede/empleado/horario + assign (2026-09-09)
+
+**Objetivo pedido:** `create usuario, create empleado, create sede, create horario, assign horario` — flujo admin completo Semana 1.
+
+**Branch:** `feature/semana-1-frontend-test` continúa (commit pendiente 32 tests).
+
+**Servicios nuevos (`lib/services/`):**
+
+- `usuario_service.dart` — `POST /api/usuarios` (nombre, apellido, email, password, rol) + `GET /api/usuarios`, `ApiException(status)` con `Bearer token`.
+- `sede_service.dart` — `POST /api/sedes` (nombre, direccion, latitud -90..90, longitud -180..180, radio>0) + `GET /api/sedes`, valida geo igual que `server/routes/sedes.js:13`.
+- `empleado_service.dart` — `POST /api/empleados` (usuario_id, codigo, cargo, modalidad FULL/PART, tipo FIJO/FLEX/ROT/PERS, fecha_ingreso YYYY-MM-DD, sede_id? horario_id?) + `PUT /api/empleados/:id` (assign) + `GET /api/empleados/:id/horario-hoy`, validaciones espejo `server/routes/empleados.js:81`.
+- `horario_service.dart` — `POST /api/horarios` (nombre, vigencia_desde, tolerancia 0-180, 7 dias transaccional) + `GET /api/horarios/:id`, repro `server/routes/horarios.js:31` (salida>entrada, refs juntos o nulos).
+
+**Screens (`lib/screens/admin/`):**
+
+- `create_usuario_screen.dart` — Form nombre/apellido/email/password/rol dropdown, `UsuarioService.crearUsuario`, muestra `id` + SnackBar, hint `POST /api/usuarios`.
+- `create_sede_screen.dart` — Form nombre/direccion/lat/lon/radio con defaults Sede Principal Lima, `SedeService.crearSede`, geo validation.
+- `create_empleado_screen.dart` — Form usuario_id/codigo/cargo/modalidad/tipo/fecha_ingreso + sede_id? horario_id? opcionales, `EmpleadoService.crearEmpleado`.
+- `create_horario_screen.dart` — Form nombre/vigencia/tolerancia + 7 cards `dia_semana 1-7` con entrada/salida/ref_ini/ref_fin + checkbox descanso (Dom default descanso), construye `dias` array y llama `HorarioService.crearHorario` (transaccional 7 filas, valida `salida>entrada`).
+- `assign_horario_screen.dart` — Form empleado_id + horario_id? + sede_id? → `PUT /api/empleados/:id` (`actualizarEmpleado`), tip para verificar con `horario-hoy`.
+- `admin_menu_screen.dart` — Lista 5 tiles con `Navigator.push` a cada create, subtitle indica endpoint.
+- `lib/screens/home/home_screen.dart` — role-based: `ADMINISTRADOR` ve 4 tabs `[Inicio, Admin, Horario, Perfil]` con `Admin` → `AdminMenuScreen`; otros roles 3 tabs (oculta Admin). `watch<AuthService>` para reactividad rol.
+
+**Tests añadidos (32/32 verde):**
+
+- `test/unit/services_test.dart` (7) — Usuario 201/409, Sede 201, Empleado 201 + assign PUT 200, Horario 201/400 con `MockClient`.
+- `test/widget/admin_menu_test.dart` (4) — Admin ve 4 tabs vs Colab 3, AdminMenu 5 tiles, navega a Crear Usuario/Sede forms.
+- Previos 21 se mantienen; nuevos totales 32. `flutter analyze` → `No issues found!`.
+
+**Cómo probar (con backend):**
+
+```bash
+export PATH="/usr/local/flutter/bin:$PATH"
+flutter test --reporter expanded # 32 passed
+# manual admin flow (logueado como admin@lumibell.com / Lumibell2026):
+# Home → Admin → Crear Sede → Crear Horario → Crear Usuario → Crear Empleado (usuario_id del paso anterior) → Asignar Horario/Sede → Inicio/Horario verifica horario-hoy
+```
+
+**Próximo:** validar con `docker compose up` + token real, y Semana 2 marcaciones QR/GPS + historial (balance) sobre `04_marcaciones.sql`.
+
