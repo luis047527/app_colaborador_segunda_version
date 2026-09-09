@@ -1,13 +1,17 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const verificarToken = require('../middleware/auth');
 const { requerirRol, permitirPropio } = require('../middleware/roles');
+const Usuarios = require('../models/usuarios');
+const {
+  sinHash,
+  validarCreate,
+  validarUpdate,
+  crearUsuario,
+  actualizarUsuario,
+} = require('../services/usuarios');
 
 const router = express.Router();
-
-const sinHash = ({ password_hash, ...resto }) => resto;
-const ROLES_VALIDOS = ['ADMINISTRADOR', 'SUPERVISOR', 'COLABORADOR'];
 
 router.use(verificarToken);
 
@@ -46,10 +50,7 @@ router.use(verificarToken);
  */
 router.get('/', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (_req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT id, nombre, apellido, email, foto_url, rol, estado, ultimo_acceso, created_at, updated_at FROM usuarios ORDER BY id'
-    );
-    res.json(rows);
+    res.json(await Usuarios.listar(pool));
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -121,39 +122,23 @@ router.get('/', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (_req, res) =>
  */
 router.get('/:id', permitirPropio('ADMINISTRADOR', 'SUPERVISOR'), async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT id, nombre, apellido, email, foto_url, rol, estado, ultimo_acceso, created_at, updated_at FROM usuarios WHERE id = ?',
-      [req.params.id]
-    );
-    if (rows.length === 0) {
+    const fila = await Usuarios.buscarPorId(pool, req.params.id);
+    if (!fila) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    res.json(rows[0]);
+    res.json(sinHash(fila));
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
 router.post('/', requerirRol('ADMINISTRADOR'), async (req, res) => {
-  const { nombre, apellido, email, password, rol, foto_url } = req.body || {};
-  if (!nombre || !apellido || !email || !password || !rol) {
-    return res.status(400).json({ error: 'nombre, apellido, email, password y rol son obligatorios' });
-  }
-  if (!ROLES_VALIDOS.includes(rol)) {
-    return res.status(400).json({ error: `rol debe ser uno de: ${ROLES_VALIDOS.join(', ')}` });
-  }
+  const errCreate = validarCreate(req.body || {});
+  if (errCreate) return res.status(400).json({ error: errCreate });
   try {
-    const [dup] = await pool.query('SELECT id FROM usuarios WHERE email = ?', [email]);
-    if (dup.length > 0) {
-      return res.status(409).json({ error: 'El email ya está registrado' });
-    }
-    const hash = await bcrypt.hash(password, 10);
-    const [result] = await pool.query(
-      'INSERT INTO usuarios (nombre, apellido, email, password_hash, foto_url, rol) VALUES (?, ?, ?, ?, ?, ?)',
-      [nombre, apellido, email, hash, foto_url || null, rol]
-    );
-    const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [result.insertId]);
-    res.status(201).json(sinHash(rows[0]));
+    const r = await crearUsuario(pool, req.body);
+    if (r.error) return res.status(r.status).json({ error: r.error });
+    res.status(r.status).json(r.data);
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -176,39 +161,11 @@ router.put('/:id', permitirPropio('ADMINISTRADOR'), async (req, res) => {
     return res.status(403).json({ error: 'No autorizado' });
   }
   try {
-    const [existe] = await pool.query('SELECT id FROM usuarios WHERE id = ?', [req.params.id]);
-    if (existe.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-    if (cambios.rol && !ROLES_VALIDOS.includes(cambios.rol)) {
-      return res.status(400).json({ error: `rol debe ser uno de: ${ROLES_VALIDOS.join(', ')}` });
-    }
-    if (cambios.estado && !['ACTIVO', 'INACTIVO', 'BLOQUEADO'].includes(cambios.estado)) {
-      return res.status(400).json({ error: 'estado inválido' });
-    }
-    if (cambios.email) {
-      const [dup] = await pool.query('SELECT id FROM usuarios WHERE email = ? AND id <> ?', [
-        cambios.email,
-        req.params.id,
-      ]);
-      if (dup.length > 0) {
-        return res.status(409).json({ error: 'El email ya está registrado' });
-      }
-    }
-    let sql;
-    const valores = Object.values(cambios);
-    if (req.body.password !== undefined) {
-      sql = await bcrypt.hash(req.body.password, 10);
-    }
-    if (Object.keys(cambios).length > 0) {
-      const setSql = Object.keys(cambios).map((c) => `${c} = ?`).join(', ');
-      await pool.query(`UPDATE usuarios SET ${setSql} WHERE id = ?`, [...valores, req.params.id]);
-    }
-    if (sql !== undefined) {
-      await pool.query('UPDATE usuarios SET password_hash = ? WHERE id = ?', [sql, req.params.id]);
-    }
-    const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [req.params.id]);
-    res.json(sinHash(rows[0]));
+    const errUpdate = validarUpdate(cambios);
+    if (errUpdate) return res.status(400).json({ error: errUpdate });
+    const r = await actualizarUsuario(pool, req.params.id, cambios, req.body.password);
+    if (r.error) return res.status(r.status).json({ error: r.error });
+    res.json(r.data);
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -216,10 +173,8 @@ router.put('/:id', permitirPropio('ADMINISTRADOR'), async (req, res) => {
 
 router.delete('/:id', requerirRol('ADMINISTRADOR'), async (req, res) => {
   try {
-    const [result] = await pool.query("UPDATE usuarios SET estado = 'INACTIVO' WHERE id = ?", [
-      req.params.id,
-    ]);
-    if (result.affectedRows === 0) {
+    const affected = await Usuarios.desactivar(pool, req.params.id);
+    if (affected === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
     res.json({ mensaje: 'Usuario desactivado (borrado lógico)' });

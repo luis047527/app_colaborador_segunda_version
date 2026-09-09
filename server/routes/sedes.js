@@ -2,36 +2,14 @@ const express = require('express');
 const pool = require('../db');
 const verificarToken = require('../middleware/auth');
 const { requerirRol } = require('../middleware/roles');
+const Sedes = require('../models/sedes');
+const { ESTADOS_VALIDOS, validarGeo, crearSede, actualizarSede } = require('../services/sedes');
 
 const router = express.Router();
 
 router.use(verificarToken);
 
-// Lista válida solo en API (sin CHECKs en DB por decisión de evolve).
-const ESTADOS_VALIDOS = ['ACTIVA', 'INACTIVA'];
 const EDITABLES = ['nombre', 'direccion', 'latitud', 'longitud', 'radio_permitido_metros', 'estado'];
-
-function validarGeo({ latitud, longitud, radio_permitido_metros }) {
-  if (latitud !== undefined) {
-    const lat = Number(latitud);
-    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
-      return 'latitud debe ser número entre -90 y 90';
-    }
-  }
-  if (longitud !== undefined) {
-    const lon = Number(longitud);
-    if (!Number.isFinite(lon) || lon < -180 || lon > 180) {
-      return 'longitud debe ser número entre -180 y 180';
-    }
-  }
-  if (radio_permitido_metros !== undefined) {
-    const radio = Number(radio_permitido_metros);
-    if (!Number.isFinite(radio) || radio <= 0) {
-      return 'radio_permitido_metros debe ser número mayor a 0';
-    }
-  }
-  return null;
-}
 
 /**
  * @openapi
@@ -66,8 +44,7 @@ function validarGeo({ latitud, longitud, radio_permitido_metros }) {
  */
 router.get('/', async (_req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM sedes ORDER BY id');
-    res.json(rows);
+    res.json(await Sedes.listar(pool));
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -128,11 +105,11 @@ router.get('/', async (_req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM sedes WHERE id = ?', [req.params.id]);
-    if (rows.length === 0) {
+    const fila = await Sedes.buscarFila(pool, req.params.id);
+    if (!fila) {
       return res.status(404).json({ error: 'Sede no encontrada' });
     }
-    res.json(rows[0]);
+    res.json(fila);
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -147,18 +124,12 @@ router.post('/', requerirRol('ADMINISTRADOR'), async (req, res) => {
   }
   const errGeo = validarGeo({ latitud, longitud, radio_permitido_metros });
   if (errGeo) return res.status(400).json({ error: errGeo });
-  const estadoFinal = estado || 'ACTIVA';
-  if (!ESTADOS_VALIDOS.includes(estadoFinal)) {
+  if (!ESTADOS_VALIDOS.includes(estado || 'ACTIVA')) {
     return res.status(400).json({ error: 'estado inválido' });
   }
   try {
-    const [result] = await pool.query(
-      `INSERT INTO sedes (nombre, direccion, latitud, longitud, radio_permitido_metros, estado)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [nombre, direccion, latitud, longitud, radio_permitido_metros, estadoFinal]
-    );
-    const [rows] = await pool.query('SELECT * FROM sedes WHERE id = ?', [result.insertId]);
-    res.status(201).json(rows[0]);
+    const r = await crearSede(pool, req.body);
+    res.status(r.status).json(r.data);
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -178,19 +149,9 @@ router.put('/:id', requerirRol('ADMINISTRADOR'), async (req, res) => {
     return res.status(400).json({ error: 'estado inválido' });
   }
   try {
-    const [existe] = await pool.query('SELECT id FROM sedes WHERE id = ?', [req.params.id]);
-    if (existe.length === 0) {
-      return res.status(404).json({ error: 'Sede no encontrada' });
-    }
-    const setSql = Object.keys(cambios)
-      .map((c) => `${c} = ?`)
-      .join(', ');
-    await pool.query(`UPDATE sedes SET ${setSql} WHERE id = ?`, [
-      ...Object.values(cambios),
-      req.params.id,
-    ]);
-    const [rows] = await pool.query('SELECT * FROM sedes WHERE id = ?', [req.params.id]);
-    res.json(rows[0]);
+    const r = await actualizarSede(pool, req.params.id, cambios);
+    if (r.error) return res.status(r.status).json({ error: r.error });
+    res.json(r.data);
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -198,10 +159,8 @@ router.put('/:id', requerirRol('ADMINISTRADOR'), async (req, res) => {
 
 router.delete('/:id', requerirRol('ADMINISTRADOR'), async (req, res) => {
   try {
-    const [result] = await pool.query("UPDATE sedes SET estado = 'INACTIVA' WHERE id = ?", [
-      req.params.id,
-    ]);
-    if (result.affectedRows === 0) {
+    const affected = await Sedes.desactivar(pool, req.params.id);
+    if (affected === 0) {
       return res.status(404).json({ error: 'Sede no encontrada' });
     }
     res.json({ mensaje: 'Sede desactivada (borrado lógico)' });

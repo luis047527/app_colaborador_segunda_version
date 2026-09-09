@@ -22,7 +22,7 @@
 - POST /api/horarios/ (header + 7 dias transaccional) + GET /api/horarios/:id; validaciones MVP en API (7 dias 1-7, salida>entrada, orden refs)
 - PUT /api/empleados/:id (traslado sede / asignar horario / editar campos; validaciones en API)
 - GET /api/empleados/:id/horario-hoy (horario del día: fecha Lima, fila del dia, horas_requeridas_min; COLABORADOR solo el suyo)
-- API call directly to SQL, no controller, service, model layers
+- API en capas: `server/services/` (auth, horarios, sedes, empleados, usuarios — puros + unit tests; rutas solo HTTP+SQL); primer modelo `server/models/usuarios.js` (login + CRUD); `routes/usuarios.js` orquesta (lecturas van ruta→modelo, escrituras ruta→servicio→modelo); `models/empleados|sedes|horarios.js` + `services/empleados.js` (crear/actualizar/horarioHoy, `hoy` inyectable); privilegio rol/estado/email queda en ruta con middleware
 
 ## Progress
 - DB constraints: removed enum CHECKs, validations moved to API. Kept mandatory only: PKs, NOT NULLs, uq_usuarios_email, uq_empleados_usuario/codigo, fk_empleados_usuario/sede RESTRICT, chk_empleados_fechas (`sql/01_schema_login.sql`)
@@ -30,7 +30,7 @@
 - Fresh rebuild applied via `docker compose down -v && docker compose up --build` (no migration needed, DB was fresh)
 - API: POST /api/empleados + PUT /api/empleados/:id (sede/horario assignment, traslado) + GET /api/empleados/:id/horario-hoy, /api/sedes CRUD (DELETE lógico a INACTIVA), POST /api/horarios (header + 7 dias transaccional) + GET /api/horarios/:id
 - Marcaciones tabla `04_marcaciones.sql` wired en `Dockerfile.db`, rebuild aplicado (6 tablas + seeds OK)
-- Tests (`server/tests/`, `npm test`, pool mockeado, sin DB ni deps nuevas): 82/82 — login (6), usuarios (16), empleados POST (12) + PUT (9), horarios (12), sedes (8), horario-hoy (9), docs (2), roles (8)
+- Tests (`server/tests/`, `npm test`, pool mockeado, sin DB ni deps nuevas): 109/109 — login (6), usuarios (16), empleados POST (12) + PUT (9), horarios (12), sedes (8), horario-hoy (9), docs (2), roles (8), servicios unit (27)
 - Docs OpenAPI (JSDoc en rutas + swagger-ui): UI en /api-docs, JSON en /api-docs.json; tests verifican las 17 rutas
 - MVP cuts (detalle abajo): sin overnight (`salida > entrada`), llegada anticipada se clampeada a programada, `horas_requeridas` calculadas por dia (no almacenadas)
 
