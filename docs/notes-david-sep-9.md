@@ -19,7 +19,7 @@
 - no endpoints to create usuarios
 - POST /api/empleados/ (create empleado: usuario_id, codigo, cargo, modalidad, tipo_horario, sede_id?, horario_id?, fechas; validaciones en API)
 - no endpoints to create sedes
-- no endpoints to create horario
+- POST /api/horarios/ (header + 7 dias transaccional) + GET /api/horarios/:id; validaciones MVP en API (7 dias 1-7, salida>entrada, orden refs)
 - no endpoints to assign usuario to sede
 - no endpoints to assign usuario to horario
 - API call directly to SQL, no controller, service, model layers
