@@ -336,15 +336,75 @@ flutter run --dart-define=API_BASE_URL=http://192.168.1.50:3000
 
 **Seed login** (`sql/02_seed_login.sql` pass `Lumibell2026`): `admin@lumibell.com` (ADMIN), `supervisor@lumibell.com`, `colaborador@lumibell.com`.
 
-**Checklist:**
-
-1. Login vacío → `Ingresa tu usuario` / `Ingresa tu contraseña` (validadores `login_screen.dart:165,198`)
-2. Pass `123` → `Ingresa una contraseña válida`
-3. Bad creds → banner rojo `Credenciales inválidas` (`auth_service.dart:43`)
-4. Login `admin@lumibell.com / Lumibell2026` → SnackBar `Bienvenido, Luis Bello` + `Home` con 4 tabs (`Inicio, Admin, Horario, Perfil`)
-5. `Horario` tab → placeholder `Mi Horario` + cards
-6. `Admin` → 5 tiles → `Crear Sede` (geo ok, sin token 401) → `Crear Horario` (7 días, salida>entrada) → `Crear Usuario` (201, 409 dup) → `Crear Empleado` (usuario_id del paso anterior, 201) → `Asignar Horario/Sede` (`PUT /api/empleados/:id`, 200) → verificar `GET /api/empleados/:id/horario-hoy` en `Horario` tab (horas_requeridas_min calculado)
-7. Logout (AppBar logout) → vuelve a Login
-
 **Config:** `lib/config/app_config.dart:12` `apiBaseUrl` default `http://localhost:3000`, override con `--dart-define=API_BASE_URL=...` sin editar código.
+
+### B.1 Manual step-by-step: crear usuario, sede, empleado, horario, assign (happy + unhappy)
+
+> Pre-condición: logueado como **ADMIN** `admin@lumibell.com / Lumibell2026`. Todas las pantallas requieren `Authorization: Bearer <token>` (`lib/services/*_service.dart` inyecta `AuthService.token`). Si el token falta/expiró → 401 `No autorizado` (middleware `server/middleware/auth.js`).
+
+#### 0) Login (base)
+
+1. Happy: email `admin@lumibell.com` + pass `Lumibell2026` → `POST /api/auth/login` 200, `Home` 4 tabs. Ver `Inicio` muestra `Bienvenido, Luis Bello`.
+2. Unhappy vacío → validador inline `Ingresa tu usuario` / `Ingresa tu contraseña` (`lib/screens/login/login_screen.dart:165,198`).
+3. Unhappy pass `123` → `Ingresa una contraseña válida` (len<4).
+4. Unhappy creds `admin@lumibell.com / wrong` → banner rojo `Credenciales inválidas` (`lib/services/auth_service.dart:43` mapea 401).
+5. Unhappy inactivo: si `estado!=ACTIVO` → `Usuario inactivo o bloqueado` (403).
+
+#### 1) Crear Sede — `POST /api/sedes` — `lib/screens/admin/create_sede_screen.dart:1` (`SedeService` `server/routes/sedes.js:140`)
+
+1. **Happy:** `Home → Admin → Crear Sede` → Nombre `Sede Test 2`, Dirección `Av Test 456`, Lat `-12.05`, Lon `-77.03`, Radio `150` → Tap `Crear sede` → 201 `Sede #2 creada` + SnackBar. Verifica `GET /api/sedes` lista la nueva (prueba `curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/sedes`).
+2. **Unhappy geo lat** → Lat `100` (>90) → client validator `Entre -90 y 90` antes de API; si se bypass → API 400 `latitud debe ser número entre -90 y 90` (`server/routes/sedes.js:13`).
+3. **Unhappy geo lon** → Lon `200` → `Entre -180 y 180` / API 400 `longitud ...`.
+4. **Unhappy radio** → Radio `0` → client `>0` / API 400 `radio_permitido_metros debe ser número mayor a 0`.
+5. **Unhappy vacío** → dejar Nombre vacío → `Requerido` inline, no llama API.
+6. **Happy alternativo:** crear `Sede Principal Lima` ya existe (seed id 1); crear segunda valida que no hay UNIQUE conflict (nombre puede repetir, solo PK).
+
+#### 2) Crear Usuario — `POST /api/usuarios` — `lib/screens/admin/create_usuario_screen.dart:1` (`UsuarioService` `server/routes/usuarios.js:136`)
+
+1. **Happy:** `Admin → Crear Usuario` → Nombre `Ana`, Apellido `Test`, Email `ana.test@lumibell.com`, Password `Lumibell2026`, Rol `COLABORADOR` → 201 `Creado usuario #4 ana.test@lumibell.com`. Anota `id=4` para empleado.
+2. **Unhappy email duplicado** → mismo email `ana.test@lumibell.com` → API 409 `El email ya está registrado` (muestra en banner rojo `_msg`). Client no bloquea porque email válido, pero API rechaza.
+3. **Unhappy email inválido** → `ana@` sin `@` → client `Email inválido` inline (no llama API).
+4. **Unhappy pass corto** → `123` → client `Mín 4 chars`.
+5. **Unhappy rol inválido** → si se manipula request a `ROL_X` → API 400 `rol debe ser uno de: ADMINISTRADOR, SUPERVISOR, COLABORADOR` (`server/routes/usuarios.js:141`).
+6. **Unhappy vacío** → Nombre vacío → `Requerido`.
+
+#### 3) Crear Horario — `POST /api/horarios` (transaccional 7 días) — `lib/screens/admin/create_horario_screen.dart:1` (`HorarioService` `server/routes/horarios.js:91`)
+
+> Form defaults: `Horario Full-time`, `vigencia 2026-01-01`, tol `10`, Lun-Sáb `10:00/19:00` con refs `13:00-14:00`, Dom `descanso`.
+
+1. **Happy:** dejar defaults → `Crear horario (transaccional 7 días)` → 201 `Horario #2 creado` (7 filas `horario_dias`). Verifica `GET /api/horarios/2` trae `dias` ordenados 1..7.
+2. **Unhappy tolerancia** → Tol `200` → client `0-180` / API 400 `tolerancia_minutos debe ser entero 0-180`.
+3. **Unhappy vigencia** → `vigencia_desde` vacío → client `Requerido` / API 400 `nombre y vigencia_desde son obligatorios`.
+4. **Unhappy salida>entrada (MVP nocturno)** → Lun `entrada 23:00 + salida 07:00` (overnight) → API 400 `dia 1: salida debe ser mayor a entrada (turno nocturno no soportado en MVP)` (`server/routes/horarios.js:60`).
+5. **Unhappy refs orden** → `entrada 10:00, ref_ini 14:00, ref_fin 13:00, salida 19:00` (ref_fin < ref_ini) → API 400 `dia 1: orden inválido, debe ser entrada <= ref_inicio < ref_fin <= salida`.
+6. **Unhappy refs solos** → solo `ref_ini 13:00` sin `ref_fin` → API 400 `ref_inicio y ref_fin deben ir juntos o ambos nulos`.
+7. **Happy flexible:** editar Mié `10:00-14:00` sin refs, Sáb `10:00-12:30 + 14:30-19:00` (doble turno) → 201 ok (flexible es solo data distinta, ver `docs/notes-david-sep-9.md:64`).
+8. **Happy descanso:** marcar Dom `Descanso` checked → envía `es_descanso:true` con horas null, API acepta (req 0).
+
+#### 4) Crear Empleado — `POST /api/empleados` — `lib/screens/admin/create_empleado_screen.dart:1` (`EmpleadoService` `server/routes/empleados.js:120`)
+
+1. **Happy:** `Admin → Crear Empleado` → `usuario_id=4` (Ana), `codigo LUM-0004`, `cargo Asistente`, `modalidad FULL_TIME`, `tipo FIJO`, `fecha_ingreso 2024-04-01`, `sede_id=2` (Sede Test), `horario_id=2` (horario creado) → 201 `Empleado #4 creado`.
+2. **Unhappy usuario duplicado** → mismo `usuario_id=4` → API 409 `El usuario ya tiene un empleado asignado` (`server/routes/empleados.js:174`).
+3. **Unhappy usuario inexistente** → `usuario_id=9999` → API 404 `Usuario no encontrado`.
+4. **Unhappy código duplicado** → `codigo LUM-0001` (seed) → API 409 `codigo_empleado duplicado o usuario ya asignado`.
+5. **Unhappy modalidad** → `modalidad XYZ` (si se bypass dropdown) → API 400 `modalidad_laboral debe ser una de: FULL_TIME, PART_TIME`.
+6. **Unhappy fecha** → `fecha_cese 2023-01-01 < fecha_ingreso 2024-01-01` → API 400 `fecha_cese no puede ser anterior a fecha_ingreso`.
+7. **Happy sin sede/horario:** dejar `sede_id` y `horario_id` vacíos → crea empleado `horario_id=NULL` (permite asignar después via assign screen) → 201 ok, luego `GET /api/empleados/:id/horario-hoy` → 404 `Empleado sin horario asignado`.
+
+#### 5) Asignar Horario/Sede — `PUT /api/empleados/:id` — `lib/screens/admin/assign_horario_screen.dart:1` (`EmpleadoService.actualizarEmpleado` `server/routes/empleados.js:261`)
+
+1. **Happy asignar horario:** `Admin → Asignar Horario/Sede` → `empleado_id=4`, `horario_id=2`, dejar `sede_id` vacío → `Asignar` → 200 `Empleado #4 actualizado → horario 2`. Verifica `GET /api/empleados/4/horario-hoy` con token admin → 200 con `horas_requeridas_min` calculado (ej. 480 para 8h).
+2. **Happy traslado sede:** `empleado_id=4`, `sede_id=1` → 200 `sede 1`.
+3. **Unhappy empleado inexistente** → `empleado_id=9999` → API 404 `Empleado no encontrado`.
+4. **Unhappy horario inexistente** → `horario_id=9999` → API 404 `Horario no encontrado`.
+5. **Unhappy sede inexistente** → `sede_id=9999` → API 404 `Sede no encontrada`.
+6. **Unhappy sin campos** → dejar ambos vacíos → client `Ingresa horario_id o sede_id` (no llama API) / API 400 `No hay campos para actualizar`.
+7. **Happy verificar COLABORADOR solo su horario:** loguear como `ana.test@lumibell.com` (si se crea token) → `GET /api/empleados/3/horario-hoy` (otro empleado) → 403 `No autorizado`; `GET /api/empleados/4/horario-hoy` propio → 200.
+
+#### 6) Verificación final Semana 1 (post-assign)
+
+1. `Horario` tab (con token de Ana si se implementa login como Ana, o admin viendo `empleado_id=4`) debe mostrar `horas_requeridas_min` = `(salida-entrada)-(ref_fin-ref_ini)` (ej. `(19:00-10:00)-(14:00-13:00)=480`).
+2. `Inicio/Perfil` siguen mostrando `nombreCompleto/rol/sede` (perfil ahora placeholder, próximamente `GET /api/empleados` con `sede` join).
+
+**Limpieza:** `docker compose down -v` resetea DB a seeds; `flutter test` sigue 32/32 sin DB.
 
