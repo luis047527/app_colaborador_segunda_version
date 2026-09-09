@@ -10,6 +10,39 @@ const ROLES_VALIDOS = ['ADMINISTRADOR', 'SUPERVISOR', 'COLABORADOR'];
 
 router.use(verificarToken);
 
+/**
+ * @openapi
+ * /api/usuarios/:
+ *   get:
+ *     summary: Listar usuarios
+ *     tags: [Usuarios]
+ *     responses:
+ *       200:
+ *         description: Lista sin password_hash
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/Usuario' }
+ *   post:
+ *     summary: Crear usuario
+ *     tags: [Usuarios]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/UsuarioInput' }
+ *     responses:
+ *       201:
+ *         description: Creado (sin hash)
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Usuario' }
+ *       400:
+ *         description: Campos faltantes o rol inválido
+ *       409:
+ *         description: Email duplicado
+ */
 router.get('/', async (_req, res) => {
   try {
     const [rows] = await pool.query(
@@ -21,6 +54,70 @@ router.get('/', async (_req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/usuarios/{id}:
+ *   get:
+ *     summary: Obtener usuario
+ *     tags: [Usuarios]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Usuario' }
+ *       404:
+ *         description: No encontrado
+ *   put:
+ *     summary: Actualizar usuario (incluye password y estado)
+ *     tags: [Usuarios]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombre: { type: string }
+ *               apellido: { type: string }
+ *               email: { type: string }
+ *               foto_url: { type: string }
+ *               password: { type: string }
+ *               rol: { type: string, enum: [ADMINISTRADOR, SUPERVISOR, COLABORADOR] }
+ *               estado: { type: string, enum: [ACTIVO, INACTIVO, BLOQUEADO] }
+ *     responses:
+ *       200:
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Usuario' }
+ *       400:
+ *         description: Sin campos o valor inválido
+ *       404:
+ *         description: No encontrado
+ *       409:
+ *         description: Email duplicado
+ *   delete:
+ *     summary: Desactivar usuario (borrado lógico a INACTIVO)
+ *     tags: [Usuarios]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Desactivado
+ *       404:
+ *         description: No encontrado
+ */
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(

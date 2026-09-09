@@ -32,6 +32,37 @@ function validarGeo({ latitud, longitud, radio_permitido_metros }) {
   return null;
 }
 
+/**
+ * @openapi
+ * /api/sedes/:
+ *   get:
+ *     summary: Listar sedes
+ *     tags: [Sedes]
+ *     responses:
+ *       200:
+ *         description: Lista
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/Sede' }
+ *   post:
+ *     summary: Crear sede
+ *     tags: [Sedes]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/SedeInput' }
+ *     responses:
+ *       201:
+ *         description: Creada (estado default ACTIVA)
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Sede' }
+ *       400:
+ *         description: Campos faltantes o geo/estado inválido
+ */
 router.get('/', async (_req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM sedes ORDER BY id');
@@ -41,6 +72,59 @@ router.get('/', async (_req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/sedes/{id}:
+ *   get:
+ *     summary: Obtener sede
+ *     tags: [Sedes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Sede' }
+ *       404:
+ *         description: No encontrada
+ *   put:
+ *     summary: Actualizar sede
+ *     tags: [Sedes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/SedeInput' }
+ *     responses:
+ *       200:
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Sede' }
+ *       400:
+ *         description: Sin campos o valor inválido
+ *       404:
+ *         description: No encontrada
+ *   delete:
+ *     summary: Desactivar sede (borrado lógico a INACTIVA)
+ *     tags: [Sedes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Desactivada
+ *       404:
+ *         description: No encontrada
+ */
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM sedes WHERE id = ?', [req.params.id]);

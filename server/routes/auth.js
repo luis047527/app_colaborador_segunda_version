@@ -5,6 +5,31 @@ const pool = require('../db');
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * /api/auth/login:
+ *   post:
+ *     summary: Iniciar sesión (JWT 8h)
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/LoginInput' }
+ *     responses:
+ *       200:
+ *         description: Token + usuario (sin hash)
+ *       400:
+ *         description: Faltan email/password
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       401:
+ *         description: Credenciales inválidas
+ *       403:
+ *         description: Usuario no activo
+ */
 router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) {

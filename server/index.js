@@ -5,6 +5,8 @@ const usuarioRoutes = require('./routes/usuarios');
 const empleadoRoutes = require('./routes/empleados');
 const horarioRoutes = require('./routes/horarios');
 const sedeRoutes = require('./routes/sedes');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./docs/swagger');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -41,6 +43,17 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: Estado del servidor y la base de datos
+ *     tags: [Sistema]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: OK (db up/down según conexión)
+ */
 app.get('/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -55,6 +68,10 @@ app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/empleados', empleadoRoutes);
 app.use('/api/horarios', horarioRoutes);
 app.use('/api/sedes', sedeRoutes);
+
+// Documentación OpenAPI: UI + JSON crudo (para codegen).
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/api-docs.json', (_req, res) => res.json(swaggerSpec));
 
 if (require.main === module) {
   app.listen(port, () => {

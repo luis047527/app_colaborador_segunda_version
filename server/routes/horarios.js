@@ -71,6 +71,23 @@ function validarDias(dias) {
   return null;
 }
 
+/**
+ * @openapi
+ * /api/horarios/:
+ *   post:
+ *     summary: Crear horario con sus 7 días (transaccional)
+ *     tags: [Horarios]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/HorarioInput' }
+ *     responses:
+ *       201:
+ *         description: Creado con dias normalizados HH:MM:SS
+ *       400:
+ *         description: Días incompletos, overnight, refs u horas inválidas
+ */
 router.post('/', async (req, res) => {
   const { nombre, descripcion, tolerancia_minutos, vigencia_desde, vigencia_hasta, dias } =
     req.body || {};
@@ -133,6 +150,23 @@ router.post('/', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/horarios/{id}:
+ *   get:
+ *     summary: Obtener horario con sus días
+ *     tags: [Horarios]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Header + dias ordenados
+ *       404:
+ *         description: No encontrado
+ */
 router.get('/:id', async (req, res) => {
   try {
     const [cab] = await pool.query('SELECT * FROM horarios WHERE id = ?', [req.params.id]);
