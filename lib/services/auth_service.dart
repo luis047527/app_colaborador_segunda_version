@@ -10,6 +10,9 @@ class AuthException implements Exception {
 }
 
 class AuthService extends ChangeNotifier {
+  final http.Client _client;
+  AuthService({http.Client? client}) : _client = client ?? http.Client();
+
   String? _token;
   Usuario? _usuario;
 
@@ -19,7 +22,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> login(String email, String password) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/auth/login');
-    final response = await http.post(
+    final response = await _client.post(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),

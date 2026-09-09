@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
 import 'screens/login/login_screen.dart';
+import 'screens/home/home_screen.dart';
 
 void main() {
   runApp(const MainApp());
@@ -24,7 +25,7 @@ class MainApp extends StatelessWidget {
         ),
         home: Consumer<AuthService>(
           builder: (context, auth, _) => auth.isAuthenticated
-              ? const HomePlaceholder()
+              ? const HomeScreen()
               : LoginScreen(authService: auth),
         ),
       ),
@@ -32,6 +33,7 @@ class MainApp extends StatelessWidget {
   }
 }
 
+// Legacy placeholder kept for backwards compat (tests/docs may reference)
 class HomePlaceholder extends StatelessWidget {
   const HomePlaceholder({super.key});
 

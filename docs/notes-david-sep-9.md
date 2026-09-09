@@ -94,3 +94,159 @@
 - Secuencia esperada (sobre aceptadas del día): sin horario o día sin refs => ENTRADA->SALIDA (2 pasos); con refs => ENTRADA->SAL_REF->REG_REF->SALIDA. Día descanso => todo se rechaza. Tipo ya aceptado => 409 duplicada; otro tipo fuera de orden => 422.
 - Endpoints: POST /api/marcaciones (empleado sale del JWT, nunca del body) + GET /api/marcaciones?empleado_id&desde&hasta (COLABORADOR solo ve las suyas).
 
+## Frontend testing — Semana 1 (simple)
+
+> Alcance frontend Semana 1 = solo **Login** (`lib/screens/login/login_screen.dart` + `lib/services/auth_service.dart` + `lib/models/usuario.dart` + `lib/config/app_config.dart` + `lib/main.dart` Provider). Sin dashboards ni marcaciones. Objetivo: verificar que el login renderiza, valida, llama a la API y maneja errores.
+
+### 1. Pre-requisitos (sin deps nuevas)
+
+```bash
+# Flutter en esta maquina esta en /usr/local/flutter/bin
+export PATH="/usr/local/flutter/bin:$PATH"
+flutter --version  # 3.47.2 / Dart 3.13.2
+flutter pub get
+```
+
+`pubspec.yaml` ya trae `flutter_test` + `flutter_lints`; no se agrega `mockito` para el simple — se usa `http` mock via `http/testing` (incluido en `http`) y `Provider` fake.
+
+### 2. Tests automatizados (unit + widget)
+
+Estructura sugerida (crear si no existe):
+
+```
+test/
+  unit/
+    usuario_test.dart          # Usuario.fromJson + nombreCompleto
+    auth_service_test.dart     # AuthService.login con MockClient
+  widget/
+    login_screen_test.dart     # LoginScreen render + validacion + estados
+```
+
+#### 2.1 Unit — `AuthService` (`lib/services/auth_service.dart:20`)
+
+Usar `http/testing.dart` → `MockClient`:
+
+```dart
+import 'package:http/testing.dart';
+import 'package:http/http.dart' as http;
+import '../lib/services/auth_service.dart'; // ajustar import relativo
+
+// 200 OK -> token + usuario parseado, isAuthenticated true
+// 401 -> throw AuthException('Credenciales inválidas')
+// 403 -> throw AuthException('Usuario inactivo o bloqueado')
+// 400/falta campo -> 400 con error generico
+// Exception de red -> 'No se pudo conectar con el servidor' (mapeado en LoginScreen:58)
+```
+
+Comando:
+
+```bash
+export PATH="/usr/local/flutter/bin:$PATH"
+flutter test test/unit/auth_service_test.dart
+flutter test test/unit/usuario_test.dart
+```
+
+#### 2.2 Widget — `LoginScreen` (`lib/screens/login/login_screen.dart:5`)
+
+Casos mínimos Semana 1:
+
+- renderiza 2 `TextFormField` (Usuario + Contraseña), boton Ingresar, link "¿Olvidaste...?" y footer Asistencia Lumibell
+- validacion vacio: "Ingresa tu usuario" / "Ingresa tu contraseña" (validadores linea 165, 198)
+- toggle visibilidad contraseña (linea 189 `_obscurePassword`)
+- `_isLoading` muestra `CircularProgressIndicator` y deshabilita boton (linea 210)
+- error de `AuthException` se muestra en `_errorMessage` (linea 285)
+- tap "Olvidaste" abre `AlertDialog` pendiente (linea 65)
+- on success muestra `SnackBar` Bienvenido (linea 53) y `notifyListeners` cambia a `HomePlaceholder` (`lib/main.dart:25`)
+
+Ejemplo pump:
+
+```dart
+testWidgets('login form valida vacios', (tester) async {
+  final auth = AuthService();
+  await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: auth)));
+  await tester.tap(find.text('Ingresar'));
+  await tester.pump();
+  expect(find.text('Ingresa tu usuario'), findsOneWidget);
+});
+```
+
+Comando:
+
+```bash
+export PATH="/usr/local/flutter/bin:$PATH"
+flutter test test/widget/login_screen_test.dart
+# o todo el frontend
+flutter test
+flutter analyze  # debe pasar sin issues (analysis_options.yaml ya excluye build/**)
+```
+
+### 3. Smoke manual (con backend real) — recomendado para Semana 1
+
+```bash
+# 1. levantar DB + API (desde raiz)
+docker compose down -v && docker compose up --build -d
+docker compose ps
+curl http://localhost:3000/health            # -> {status:"ok"}
+curl http://localhost:3000/api-docs.json | head  # 17 rutas documentadas
+
+# 2. correr Flutter (web/desktop por defecto localhost:3000)
+export PATH="/usr/local/flutter/bin:$PATH"
+flutter run --dart-define=API_BASE_URL=http://localhost:3000          # web/windows
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3000
+
+# Android emulador -> 10.0.2.2, fisico -> IP LAN del host
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
+flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000
+```
+
+Credenciales seed (`sql/02_seed_login.sql`, pass todos: `Lumibell2026`):
+
+- `admin@lumibell.com` / `Lumibell2026` (ADMINISTRADOR)
+- `supervisor@lumibell.com` / `Lumibell2026` (SUPERVISOR)
+- `colaborador@lumibell.com` / `Lumibell2026` (COLABORADOR)
+
+Checks manuales:
+
+1. campos vacios → mensajes validacion inline
+2. pass <4 chars → "Ingresa una contraseña válida"
+3. credenciales malas → banner rojo "Credenciales inválidas" (`AuthService:43`)
+4. usuario ACTIVO → SnackBar Bienvenido + navega a `HomePlaceholder` Bienvenido, nombreCompleto + logout
+5. `AppConfig.apiBaseUrl` (`lib/config/app_config.dart:12`) respeta `--dart-define` sin recompilar codigo
+
+### 4. Criterio OK Semana 1 frontend
+
+- `flutter analyze` sin errores
+- `flutter test` verde (unit + widget login)
+- login manual con los 3 usuarios seed funciona en chrome/web y/o device elegido, usando `API_BASE_URL` correcto
+
+### 5. Frontend scaffold Semana 1 — commit 2026-09-09 (feature/semana-1-frontend-test)
+
+**Branch:** `feature/semana-1-frontend-test` (alias `semana-1-frontend-test`) desde `feature/semana-1-backend` (4bf09d0).
+
+**Cambios incluidos:**
+
+- `lib/screens/home/home_screen.dart` — `HomeScreen` con `NavigationBar` 3 tabs (Inicio/Horario/Perfil) + `AppBar` dinámico + logout (`lib/main.dart:25` usa `HomeScreen` si `isAuthenticated`, mantiene `HomePlaceholder` legacy).
+- `lib/screens/inicio/inicio_screen.dart` — bienvenida con `nombreCompleto`/`rol` + card Semana 1.
+- `lib/screens/horario/horario_screen.dart` — placeholder `GET /api/empleados/:id/horario-hoy` + cards Horario/Horas requeridas.
+- `lib/screens/perfil/perfil_screen.dart` — avatar, email, rol/estado, sede/supervisor TODO.
+- `lib/services/auth_service.dart:14` — inyección `http.Client` (`AuthService({client})`) para testabilidad con `MockClient`; default `http.Client()` preserva prod.
+- `analysis_options.yaml` — `exclude: build/** android/** ios/** web/**` para `flutter analyze` limpio.
+- Tests `test/` (21/21 verde, `export PATH="/usr/local/flutter/bin:$PATH"`):
+  - `test/unit/usuario_test.dart` (2) — `Usuario.fromJson` + `nombreCompleto` (`lib/models/usuario.dart:10`).
+  - `test/unit/auth_service_test.dart` (6) — 200 OK + notify, 401/403/400 errores, network exception, logout (`lib/services/auth_service.dart:20`).
+  - `test/unit/app_config_test.dart` (1) — default `http://localhost:3000` (`lib/config/app_config.dart:12`).
+  - `test/widget/login_screen_test.dart` (5) — render, validación vacíos (2 widgets hint+error), toggle visibilidad, dialog recuperación, pass corta.
+  - `test/widget/home_screen_test.dart` (3) — NavigationBar 3 destinations, navegación Inicio↔Horario↔Perfil, AppBar title.
+  - `test/widget/inicio_perfil_test.dart` (3) — Inicio bienvenida, Perfil datos, Horario placeholder.
+  - `test/widget/app_test.dart` (1) — `MainApp` default muestra Login.
+- Verificación: `flutter analyze` → `No issues found!` (8s), `flutter test --coverage` → 21 passed, `lcov` 100% en `usuario.dart`/`auth_service.dart`.
+
+**Comando reproducir:**
+
+```bash
+export PATH="/usr/local/flutter/bin:$PATH"
+flutter pub get && flutter analyze && flutter test --reporter expanded && flutter test --coverage
+```
+
+**Próximo:** Semana 2 — marcaciones (QR+GPS), historial y cálculo, sobre `04_marcaciones.sql` + `POST/GET /api/marcaciones`.
+
