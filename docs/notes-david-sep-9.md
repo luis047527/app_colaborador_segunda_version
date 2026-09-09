@@ -293,3 +293,58 @@ flutter test --reporter expanded # 32 passed
 
 **Próximo:** validar con `docker compose up` + token real, y Semana 2 marcaciones QR/GPS + historial (balance) sobre `04_marcaciones.sql`.
 
+## Instructions to test client (Flutter) — quick copy-paste (Semana 1)
+
+**Branch:** `feature/semana-1-frontend-test` (also `semana-1-frontend-test`), 32 tests verde.
+
+### A. Automated (no backend needed)
+
+```bash
+# Flutter está en /usr/local/flutter/bin en esta máquina
+export PATH="/usr/local/flutter/bin:$PATH"
+flutter --version          # 3.47.2 / Dart 3.13.2
+flutter pub get
+flutter analyze            # → No issues found!
+flutter test --reporter expanded   # → 32 passed (unit 10 + widget 22)
+flutter test --coverage    # → coverage/lcov.info 100% en usuario.dart/auth_service.dart
+# solo login
+flutter test test/widget/login_screen_test.dart
+flutter test test/unit/auth_service_test.dart
+```
+
+**Qué valida:** `lib/models/usuario.dart:20` fromJson/nombreCompleto, `lib/services/auth_service.dart:20` login 200/401/403/400 + logout, `lib/services/*_service.dart` MockClient 201/4xx, `lib/screens/login/login_screen.dart:165` validadores + `lib/screens/home/home_screen.dart:14` role-based Admin tab, `lib/screens/admin/*` forms.
+
+### B. Manual with backend (admin CRUD flow)
+
+```bash
+# 1. Backend (raíz del repo)
+docker compose down -v && docker compose up --build -d
+docker compose ps
+curl http://localhost:3000/health            # {status:"ok"}
+curl http://localhost:3000/api-docs.json | head  # 17 rutas
+
+# 2. Client
+export PATH="/usr/local/flutter/bin:$PATH"
+# web/chrome (default http://localhost:3000)
+flutter run --dart-define=API_BASE_URL=http://localhost:3000
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3000
+# emulador Android
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
+# físico (IP LAN del host)
+flutter run --dart-define=API_BASE_URL=http://192.168.1.50:3000
+```
+
+**Seed login** (`sql/02_seed_login.sql` pass `Lumibell2026`): `admin@lumibell.com` (ADMIN), `supervisor@lumibell.com`, `colaborador@lumibell.com`.
+
+**Checklist:**
+
+1. Login vacío → `Ingresa tu usuario` / `Ingresa tu contraseña` (validadores `login_screen.dart:165,198`)
+2. Pass `123` → `Ingresa una contraseña válida`
+3. Bad creds → banner rojo `Credenciales inválidas` (`auth_service.dart:43`)
+4. Login `admin@lumibell.com / Lumibell2026` → SnackBar `Bienvenido, Luis Bello` + `Home` con 4 tabs (`Inicio, Admin, Horario, Perfil`)
+5. `Horario` tab → placeholder `Mi Horario` + cards
+6. `Admin` → 5 tiles → `Crear Sede` (geo ok, sin token 401) → `Crear Horario` (7 días, salida>entrada) → `Crear Usuario` (201, 409 dup) → `Crear Empleado` (usuario_id del paso anterior, 201) → `Asignar Horario/Sede` (`PUT /api/empleados/:id`, 200) → verificar `GET /api/empleados/:id/horario-hoy` en `Horario` tab (horas_requeridas_min calculado)
+7. Logout (AppBar logout) → vuelve a Login
+
+**Config:** `lib/config/app_config.dart:12` `apiBaseUrl` default `http://localhost:3000`, override con `--dart-define=API_BASE_URL=...` sin editar código.
+
