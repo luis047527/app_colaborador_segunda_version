@@ -4,6 +4,7 @@ const authRoutes = require('./routes/auth');
 const usuarioRoutes = require('./routes/usuarios');
 const empleadoRoutes = require('./routes/empleados');
 const horarioRoutes = require('./routes/horarios');
+const sedeRoutes = require('./routes/sedes');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -53,6 +54,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/empleados', empleadoRoutes);
 app.use('/api/horarios', horarioRoutes);
+app.use('/api/sedes', sedeRoutes);
 
 if (require.main === module) {
   app.listen(port, () => {
