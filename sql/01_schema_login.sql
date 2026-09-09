@@ -16,9 +16,7 @@ CREATE TABLE usuarios (
   updated_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_usuarios_email (email),
-  KEY idx_usuarios_estado (estado),
-  CONSTRAINT chk_usuarios_rol CHECK (rol IN ('ADMINISTRADOR', 'SUPERVISOR', 'COLABORADOR')),
-  CONSTRAINT chk_usuarios_estado CHECK (estado IN ('ACTIVO', 'INACTIVO', 'BLOQUEADO'))
+  KEY idx_usuarios_estado (estado)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE sedes (
@@ -31,8 +29,7 @@ CREATE TABLE sedes (
   estado                 VARCHAR(20)     NOT NULL DEFAULT 'ACTIVA',
   created_at             DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at             DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  CONSTRAINT chk_sedes_estado CHECK (estado IN ('ACTIVA', 'INACTIVA'))
+  PRIMARY KEY (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE empleados (
@@ -55,7 +52,5 @@ CREATE TABLE empleados (
   KEY idx_empleados_estado (estado),
   CONSTRAINT fk_empleados_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE RESTRICT,
   CONSTRAINT fk_empleados_sede FOREIGN KEY (sede_id) REFERENCES sedes (id) ON DELETE RESTRICT,
-  CONSTRAINT chk_empleados_tipo_horario CHECK (tipo_horario IN ('FIJO', 'FLEXIBLE', 'ROTATIVO', 'PERSONALIZADO')),
-  CONSTRAINT chk_empleados_estado CHECK (estado IN ('ACTIVO', 'INACTIVO')),
   CONSTRAINT chk_empleados_fechas CHECK (fecha_cese IS NULL OR fecha_cese >= fecha_ingreso)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
