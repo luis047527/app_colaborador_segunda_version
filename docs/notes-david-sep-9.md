@@ -29,6 +29,8 @@
 - kept mandatory only: PKs, NOT NULLs, uq_usuarios_email, uq_empleados_usuario/codigo, fk_empleados_usuario/sede RESTRICT, chk_empleados_fechas
 - run `docker compose down -v` and `docker compose up --build` to get new database
 - added Tests (`server/tests/`, `npm test`, pool mockeado): POST /api/auth/login, /api/usuarios, POST /api/empleados
+- added Horarios endpoint  (/api/horarios/)
+- added method to re-assign sede to empleado (PUT /api/empleados/)
 
 ## Horarios design (chat sep-9)
 - Decision: 2 tables `horarios` (header) + `horario_dias` (7 rows per horario).
