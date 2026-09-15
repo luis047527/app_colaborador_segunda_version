@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import 'models/usuario.dart';
 import 'services/auth_service.dart';
+import 'screens/inicio/admin_home_screen.dart';
 import 'screens/login/login_screen.dart';
 
 void main() {
@@ -23,9 +26,15 @@ class MainApp extends StatelessWidget {
           scaffoldBackgroundColor: const Color(0xFFFAF1E6),
         ),
         home: Consumer<AuthService>(
-          builder: (context, auth, _) => auth.isAuthenticated
-              ? const HomePlaceholder()
-              : LoginScreen(authService: auth),
+          builder: (context, auth, _) {
+            if (!auth.isAuthenticated) return LoginScreen(authService: auth);
+
+            final usuario = auth.usuario!;
+            if (usuario.rol == 'ADMINISTRADOR') {
+              return AdminHomeScreen(usuario: usuario, onLogout: auth.logout);
+            }
+            return HomePlaceholder(usuario: usuario);
+          },
         ),
       ),
     );
@@ -33,7 +42,9 @@ class MainApp extends StatelessWidget {
 }
 
 class HomePlaceholder extends StatelessWidget {
-  const HomePlaceholder({super.key});
+  const HomePlaceholder({super.key, required this.usuario});
+
+  final Usuario usuario;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +60,7 @@ class HomePlaceholder extends StatelessWidget {
         ],
       ),
       body: Center(
-        child: Text('Bienvenido, ${auth.usuario?.nombreCompleto ?? ''}'),
+        child: Text('Bienvenido, ${usuario.nombreCompleto}'),
       ),
     );
   }
