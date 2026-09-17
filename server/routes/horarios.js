@@ -61,6 +61,13 @@ router.post('/', requerirRol('ADMINISTRADOR'), async (req, res) => {
   }
 });
 
+router.get('/', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (_req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM horarios ORDER BY id DESC');
+    res.json(rows);
+  } catch (_) { res.status(500).json({ error: 'Error interno del servidor' }); }
+});
+
 /**
  * @openapi
  * /api/horarios/{id}:

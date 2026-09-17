@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const verificarToken = require('../middleware/auth');
 const { requerirRol } = require('../middleware/roles');
+const Horarios = require('../models/horarios');
 const {
   validarCreate,
   validarUpdate,
@@ -13,6 +14,53 @@ const {
 const router = express.Router();
 
 router.use(verificarToken);
+
+// Lista operativa para la gestión de colaboradores.
+router.get('/', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (_req, res) => {
+  try {
+    const [rows] = await pool.query(`SELECT e.*, u.nombre, u.apellido, u.email, u.rol,
+      s.nombre AS sede_nombre, h.nombre AS horario_nombre
+      FROM empleados e JOIN usuarios u ON u.id = e.usuario_id
+      LEFT JOIN sedes s ON s.id = e.sede_id LEFT JOIN horarios h ON h.id = e.horario_id
+      ORDER BY u.nombre, u.apellido`);
+    res.json(rows);
+  } catch (_) { res.status(500).json({ error: 'Error interno del servidor' }); }
+});
+
+router.get('/mio', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT e.*, u.nombre, u.apellido, u.email, u.foto_url, u.rol,
+        s.nombre AS sede_nombre, s.direccion AS sede_direccion,
+        h.nombre AS horario_nombre, h.tolerancia_minutos
+       FROM empleados e
+       JOIN usuarios u ON u.id = e.usuario_id
+       LEFT JOIN sedes s ON s.id = e.sede_id
+       LEFT JOIN horarios h ON h.id = e.horario_id
+       WHERE e.usuario_id = ?`,
+      [req.usuario.sub]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Usuario sin perfil de colaborador' });
+    res.json(rows[0]);
+  } catch (_) { res.status(500).json({ error: 'Error interno del servidor' }); }
+});
+
+router.get('/mio/horario-semanal', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT horario_id FROM empleados WHERE usuario_id = ?',
+      [req.usuario.sub]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Usuario sin perfil de colaborador' });
+    if (!rows[0].horario_id) return res.status(404).json({ error: 'Colaborador sin horario asignado' });
+    const horario = await Horarios.buscarPorId(pool, rows[0].horario_id);
+    if (!horario) return res.status(404).json({ error: 'Horario no encontrado' });
+    const dias = await Horarios.listarDias(pool, rows[0].horario_id);
+    res.json({ ...horario, dias });
+  } catch (_) {
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
 
 // Horario del día para el colaborador (criterio de éxito #5 MVP).
 // COLABORADOR solo ve el suyo; ADMIN/SUPERVISOR cualquiera.
