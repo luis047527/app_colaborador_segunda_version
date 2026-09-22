@@ -39,10 +39,11 @@ curl -s http://localhost:3000/api/empleados -H "Authorization: Bearer $TOKEN" # 
 ```
 Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy` for `COLABORADOR` after fix — all `200`.
 
-## Follow-up 1 — Semana 1 home docs/tests (commit `5c3dd62`)
-- Checked `docs/Alcance_Funcional_Lumibell_MVP_1_mes.md:54` Semana 1 (auditar BD/API, gestión usuarios, horarios personalizados, reglas). `GET /api/empleados` (home `lib/screens/inicio/admin_home_screen.dart:25`) lacked `@openapi` and tests.
-- Added `server/routes/empleados.js:19` `GET /` OpenAPI (`ADMIN/SUPERVISOR`, `LEFT JOIN horarios`), `server/routes/empleados.js:30`/`48` for `/mio` + `/mio/horario-semanal`.
-- Created `server/tests/empleados_get.test.js:1` (11 tests: `401`/`403`/`200` + JOIN regression for `/`) and updated `server/tests/docs.test.js:23` (`/api/empleados/` `get`+`post`, `/mio`, `/mio/horario-semanal`). Tests `109→120` pass, spec exposes new paths.
+## Follow-up 1 — Semana 1 home docs/tests (commit `5c3dd62`) — endpoint `/api/empleados` was Semana 1
+- **Why necessary for Semana 1:** per `docs/Alcance_Funcional_Lumibell_MVP_1_mes.md:54` Semana 1 = “Gestión de usuarios colaboradores” + “base técnica preparada”. `GET /api/empleados/` (`server/routes/empleados.js:38` `requerirRol('ADMINISTRADOR','SUPERVISOR')` + `LEFT JOIN sede/horario`) is the lista operativa for `AdminHomeScreen` (`lib/screens/inicio/admin_home_screen.dart:25` → resumen equipo + `ColaboradoresScreen`). Without it Semana 1 cannot show home “Resumen del equipo” nor validate `horario_id` FK fix. Criterio audit: Semana 1 must be completable before Semana 2 marcaciones — we verified `docs/Alcance_Funcional_Lumibell_MVP_1_mes.md:342` `Gestión de usuarios ☐ → ☑` depends on this list.
+- Checked Semana 1: `GET /api/empleados` lacked `@openapi` and tests (while `POST /api/empleados` already had). Also `GET /mio` + `/mio/horario-semanal` lacked docs for perfil/horario flows but were pre-existing for Semana 1.
+- Added `server/routes/empleados.js:19` `GET /` OpenAPI (`ADMIN/SUPERVISOR`, `LEFT JOIN horarios`), and retained `server/routes/empleados.js:30`/`48` for `/mio` + `/mio/horario-semanal` (now deprecated aliases, see Follow-up 2).
+- Created `server/tests/empleados_get.test.js:1` (11 tests: `401`/`403`/`200` + JOIN `horario_id` regression for `/`) and updated `server/tests/docs.test.js:23` (`/api/empleados/` `get`+`post`, `/mio`, `/mio/horario-semanal`). Tests `109→120` pass, spec exposes new paths. This completes Semana 1 base técnica for home.
 
 ## Follow-up 2 — REST-pure refactor `me`/`horario` (commit `3417a69`)
 - Audited `GET /api/empleados/mio` (`:30`) and `/:id/horario-hoy` (`:138`) against REST: pronoun `mio` non-standard (should be `me`), qualifier-in-path `horario-hoy` should be `?fecha`, `horario-semanal` hyphen + nesting `mio/horario-semanal` order-dependent (`mio` before `:id` or shadowing), singular/plural `horario` vs `horarios` collection.
