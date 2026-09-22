@@ -15,7 +15,26 @@ const router = express.Router();
 
 router.use(verificarToken);
 
-// Lista operativa para la gestión de colaboradores.
+/**
+ * @openapi
+ * /api/empleados/:
+ *   get:
+ *     summary: Listar empleados (ADMIN/SUPERVISOR)
+ *     description: Lista operativa para gestión de colaboradores y home Admin. Requiere ADMIN o SUPERVISOR. Incluye datos de usuario, sede y horario vía LEFT JOIN.
+ *     tags: [Empleados]
+ *     responses:
+ *       200:
+ *         description: Lista de empleados con datos de usuario/sede/horario
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/Empleado' }
+ *       401:
+ *         description: Token no proporcionado o inválido
+ *       403:
+ *         description: Rol no autorizado (COLABORADOR)
+ */
 router.get('/', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (_req, res) => {
   try {
     const [rows] = await pool.query(`SELECT e.*, u.nombre, u.apellido, u.email, u.rol,
@@ -27,6 +46,24 @@ router.get('/', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (_req, res) =>
   } catch (err) { console.error('GET /api/empleados error:', err); res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
+/**
+ * @openapi
+ * /api/empleados/mio:
+ *   get:
+ *     summary: Perfil de colaborador del usuario autenticado
+ *     description: Retorna el empleado vinculado a `req.usuario.sub` con datos de usuario, sede y horario.
+ *     tags: [Empleados]
+ *     responses:
+ *       200:
+ *         description: Empleado encontrado
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Empleado' }
+ *       401:
+ *         description: Token no proporcionado o inválido
+ *       404:
+ *         description: Usuario sin perfil de colaborador
+ */
 router.get('/mio', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -45,6 +82,21 @@ router.get('/mio', async (req, res) => {
   } catch (_) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
+/**
+ * @openapi
+ * /api/empleados/mio/horario-semanal:
+ *   get:
+ *     summary: Horario semanal del colaborador autenticado
+ *     description: Retorna cabecera `horarios` + `horario_dias` (7 filas) para el empleado del JWT.
+ *     tags: [Empleados]
+ *     responses:
+ *       200:
+ *         description: Horario con dias
+ *       401:
+ *         description: Token no proporcionado o inválido
+ *       404:
+ *         description: Usuario sin perfil, sin horario asignado u horario no encontrado
+ */
 router.get('/mio/horario-semanal', async (req, res) => {
   try {
     const [rows] = await pool.query(
