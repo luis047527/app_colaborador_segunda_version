@@ -79,7 +79,7 @@ Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy`
 - **Evidence needed:** written sign-off from Luis (comment in PR `frontend-mvp-usuarios-horarios-marcacion`, or email/Slack thread, or approval comment on `docs/reglas_calculo.md` / `docs/notes-david-sep-9.md:5`). Until then Semana 1 cannot be marked *approved* even though `124` tests pass. Track as blocker.
 - **Next step:** request Luis review of `docs/reglas_calculo.md` + `GET /api/empleados/:id/horario` sample payload (`fecha`, `horas_requeridas_min`, `tolerancia_minutos`) and capture screenshot/link in this note.
 
-## TO DO (remaining)
+## TO DO — Semana 1 (remaining to close Semana 1)
 - [x] Fix data script and config to have fresh data when re-building containers
 - [x] Semana 1 home endpoints documented & tested
 - [x] REST-pure `me`/`horario` with deprecated aliases; FE migrated → then aliases removed (`f76b87a`)
@@ -88,5 +88,11 @@ Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy`
 - [x] `npm run db:reset` alias added (`server/package.json:5` `f76b87a`)
 - [x] Remove unused legacy empleados aliases (`f76b87a`, spec now clean)
 - [x] Agents doc added (`AGENTS.md:1` — `1da7ea7`, per user approval 2026-09-22)
-- [ ] Semana 2: check marcaciones endpoints above — add OpenAPI + `marcaciones.test.js` + docs/roles asserts
+- [ ] Pending evidence from Luis about calcs for Semana 1 (see above) — blocker to mark Semana 1 approved
+- [ ] `GET /api/horarios/` list test (last Semana 1 gap)
+
+## Next iteration — Semana 2 (after Semana 1 approved)
+> Not a TODO for current Semana 1. Track here per `Alcance §4 Semana 2 — Marcación` to start only after Semana 1 is approved.
+
+- Semana 2: check `marcaciones` endpoints audited above (`POST /api/marcaciones/qr/sede/:sedeId`, `GET /api/marcaciones/mio`, `POST /api/marcaciones`) — add `@openapi` + `server/tests/marcaciones.test.js` + `docs.test.js`/`roles.test.js` asserts per `docs/reglas_calculo.md:66`.
 
