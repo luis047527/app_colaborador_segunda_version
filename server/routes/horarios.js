@@ -61,6 +61,34 @@ router.post('/', requerirRol('ADMINISTRADOR'), async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/horarios/:
+ *   get:
+ *     summary: Listar horarios (ADMIN/SUPERVISOR)
+ *     description: Requerido en Semana 1 para asignar horarios en la UI. Retorna cabeceras ordenadas por id DESC.
+ *     tags: [Horarios]
+ *     responses:
+ *       200:
+ *         description: Lista de horarios
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id: { type: integer }
+ *                   nombre: { type: string }
+ *                   descripcion: { type: string, nullable: true }
+ *                   tolerancia_minutos: { type: integer }
+ *                   vigencia_desde: { type: string, format: date }
+ *                   vigencia_hasta: { type: string, format: date, nullable: true }
+ *       401:
+ *         description: Token no proporcionado o inválido
+ *       403:
+ *         description: Rol no autorizado (COLABORADOR)
+ */
 router.get('/', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (_req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM horarios ORDER BY id DESC');
