@@ -72,7 +72,12 @@ Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy`
   - Need for Semana 2: add `@openapi` (security, `qr_token`/`latitud`/`longitud`, responses `201`/`400`/`403`/`404`), add `server/tests/marcaciones.test.js` mocking `pool` + `Marcaciones` model (QR `LUMIBELL-SEDE-{id}` static, GPS `fuera_radio`, secuencia `ENTRADA`→`SALIDA_REFRIGERIO`→`REGRESO`→`SALIDA`) per `docs/reglas_calculo.md:66` and `docs/notes-david-sep-9.md:35`, and extend `server/tests/docs.test.js:23` `ESPERADAS` + `roles.test.js:118` for marcaciones.
 
 ## Follow-up 5 — coding agents doc (question from user 2026-09-22)
-- User asked: “we're using coding agents. should we add a document for agents to solve issues like endpoints nomenclature that we fixed recently ?” — pending decision to add `AGENTS.md` / `docs/REST_API_GUIDELINES.md` with checklist (pronoun `me` vs `mio`, qualifier in path vs `?fecha`, plural/singular, `@openapi` + `docs.test.js` + Flutter grep + `npm test` + `curl` verification). Not yet created — to be added next if approved.
+- User asked: “we're using coding agents. should we add a document for agents to solve issues like endpoints nomenclature that we fixed recently ?” — added `AGENTS.md:1` (`1da7ea7`) per approval 2026-09-22, committed.
+
+## Pending — evidence for approval from Luis about calcs for Semana 1
+- **Semana 1 calcs in scope:** per `docs/Alcance_Funcional_Lumibell_MVP_1_mes.md:54` + `docs/reglas_calculo.md:66` — base técnica defines `horario` model (`horarios` + `horario_dias`, `empleados.horario_id`), tolerancia, `horas requeridas = salida-entrada - (ref_fin-ref_inicio)`, `horas trabajadas`/`balance` placeholders, and `GET /api/empleados/:id/horario?fecha` calculation in `server/services/empleados.js:131` `horarioHoy` + `server/models/horarios.js`. These were not yet formally approved by Luis (Product Owner).
+- **Evidence needed:** written sign-off from Luis (comment in PR `frontend-mvp-usuarios-horarios-marcacion`, or email/Slack thread, or approval comment on `docs/reglas_calculo.md` / `docs/notes-david-sep-9.md:5`). Until then Semana 1 cannot be marked *approved* even though `124` tests pass. Track as blocker.
+- **Next step:** request Luis review of `docs/reglas_calculo.md` + `GET /api/empleados/:id/horario` sample payload (`fecha`, `horas_requeridas_min`, `tolerancia_minutos`) and capture screenshot/link in this note.
 
 ## TO DO (remaining)
 - [x] Fix data script and config to have fresh data when re-building containers
