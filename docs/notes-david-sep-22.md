@@ -1,0 +1,46 @@
+# Notes — 2026-09-22 (home 500 + fresh dev DB)
+
+## Current status (before fix)
+- `AdminHomeScreen` (`lib/screens/inicio/admin_home_screen.dart:25` → `GET /api/empleados`) returned `500 {"error":"Error interno del servidor"}`. Curl with valid `ADMIN` JWT reproduced it.
+- Root cause: stale volume `mysql_data` prevented `docker-entrypoint-initdb.d` re-run. `Dockerfile.db:10` only copied `01..04` (missing `05`); lexical order was `01..05` then `init-db.sql` (root) last (`'0' < 'i'`), so init ran late. Live DB had only `usuarios, sedes, empleados` without `empleados.horario_id` and without tables `horarios/horario_dias/marcaciones` → `server/routes/empleados.js:19` query `LEFT JOIN horarios h ON h.id = e.horario_id` threw `ER_NO_SUCH_TABLE`/`ER_BAD_FIELD_ERROR` swallowed by `catch (_)` → generic 500 (`server/index.js:69`).
+- `sql/02_seed_login.sql:5` was non-idempotent (`INSERT VALUES`) — second apply via scripts failed on `uq_usuarios_email`/`uq_empleados_codigo`.
+- `scripts/apply-db-scripts.sh:19` / `.ps1:17` only handled `01`+`02`, not `03..05`.
+
+## Fix applied (commit `30fa4ac` `fix(data): ensure fresh dev DB follows schema...`)
+
+### 1. Init ordering & fresh build
+- Renamed `init-db.sql` → `sql/00_init-db.sql:1` and deleted root `init-db.sql`. `Dockerfile.db:11` now `COPY sql/00_init-db.sql sql/01_schema_login.sql sql/02_seed_login.sql sql/03_horarios.sql sql/04_marcaciones.sql sql/05_seed_demo_colaboradores_horarios.sql /docker-entrypoint-initdb.d/` — lexical `00..05` guarantees deterministic init. Verified `docker exec mysql_db ls -1 /docker-entrypoint-initdb.d` → `00..05` and `docker-compose down -v && up --build` creates 6 tables + `horario_id` column.
+- Verified `SHOW TABLES` → `empleados, horario_dias, horarios, marcaciones, sedes, usuarios`; `DESCRIBE empleados` has `horario_id` FK; seed counts `5 usuarios / 5 empleados / 2 horarios / 14 horario_dias`.
+
+### 2. Idempotent seeds (why old dates kept fixed)
+- `sql/02_seed_login.sql:5` rewritten to `INSERT ... SELECT ... WHERE NOT EXISTS (SELECT 1 FROM sedes WHERE nombre=...)` / `WHERE email=...` / `WHERE codigo_empleado=...` and resolves `sede_id`/`usuario_id` dynamically via sub-select. Fixed historical hire dates `2024-01-15`, `2024-02-01`, `2024-03-10` **kept as-is** because they are past tenure data — stable for sorting/tenure tests and `chk_empleados_fechas`. Making them `CURRENT_DATE` would make every reset produce moving dates and flaky snapshots. This was confirmed with user: “old dates can be fixed. they are test data so it's not important.”
+- `sql/05_seed_demo_colaboradores_horarios.sql:6` stays `CURRENT_DATE` / `DATE_SUB(CURRENT_DATE, INTERVAL 1 DAY)` for demo vigencia/marcaciones — intentionally relative to today so historial shows “ayer/anteayer” after each reset.
+
+### 3. Incremental apply scripts
+- `scripts/apply-db-scripts.sh:15` / `scripts/apply-db-scripts.ps1:14` now handle `00..05`: `has_table()` / `Has-Table()` + `has_column()` checks against `information_schema`, `00+01` only if `usuarios` missing, `02` always (idempotent), `03` if `horarios` missing or `empleados.horario_id` missing (covers stale volumes), `04` if `marcaciones` missing, `05` always. Verified idempotent — two consecutive runs keep counts `5/5/2` and `GET /api/empleados` stays `200`.
+
+### 4. Deterministic dev reset helpers
+- Added `scripts/reset-db.sh:1` / `scripts/reset-db.ps1:1` (`chmod +x`) — `docker compose down -v && up --build -d` + `mysqladmin ping` wait + `SHOW TABLES` + `curl /health` check. Handles `docker compose` vs `docker-compose` fallback. Documented in `README.md:103`.
+
+### 5. Docs & observability
+- `README.md:82` Option 2 now references `sql/00_init-db.sql → 05_*`; `README.md:103` Option 3 and `## Datos frescos en dev` explain `down` (keeps data) vs `down -v` (fresh) and `reset-db.sh/ps1` vs incremental `apply-db-scripts`.
+- `server/routes/empleados.js:27` changed `catch (_) {500}` → `catch (err) { console.error('GET /api/empleados error:', err); 500 }` so next `ER_*` surfaces in `docker logs node_server`.
+
+## Verification
+```bash
+docker-compose down -v && docker-compose up --build -d
+# wait healthy, then
+docker exec mysql_db mysql -uappuser -papppassword -e "SHOW TABLES; DESCRIBE empleados;" appdb
+curl -s http://localhost:3000/health            # {"status":"ok","db":"up"}
+TOKEN=$(docker exec node_server node -e "console.log(require('jsonwebtoken').sign({sub:1,rol:'ADMINISTRADOR'},process.env.JWT_SECRET))")
+curl -s http://localhost:3000/api/empleados -H "Authorization: Bearer $TOKEN" # 200, 5 rows
+# incremental idempotency
+./scripts/apply-db-scripts.sh && ./scripts/apply-db-scripts.sh
+```
+Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy` for `COLABORADOR` after fix — all `200`.
+
+## TO DO (remaining)
+- [x] Fix data script and config to have fresh data when re-building containers
+- [ ] Remove `coverage/` and `docs/notes-david-sep-22.md` from next commit if not needed, or `git add` the notes if they should be tracked (currently untracked)
+- [ ] Consider adding `npm run db:reset` in `server/package.json` as alias to `scripts/reset-db.sh` for convenience
+
