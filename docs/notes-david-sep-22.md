@@ -82,7 +82,6 @@ Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy`
 - [x] `GET /api/horarios/` OpenAPI added (`7169fa6`); remaining: add dedicated `GET /api/horarios/` test (list `200`/`401`/`403`)
 - [x] `npm run db:reset` alias added (`server/package.json:5` `f76b87a`)
 - [x] Remove unused legacy empleados aliases (`f76b87a`, spec now clean)
+- [x] Agents doc added (`AGENTS.md:1` — `1da7ea7`, per user approval 2026-09-22)
 - [ ] Semana 2: check marcaciones endpoints above — add OpenAPI + `marcaciones.test.js` + docs/roles asserts
-- [ ] Agents doc: create `AGENTS.md` / `docs/REST_API_GUIDELINES.md` if approved
-- [ ] Consider eventual `/api/v1` versioning (`docs/notes-david-sep-9.md:38`)
 
