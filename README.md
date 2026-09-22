@@ -76,10 +76,10 @@ docker run -d --name mysql_db \
 
 ### Opción 2: Usando Dockerfile (construir imagen personalizada)
 
-Con un Dockerfile personalizado, puedes construir y iniciar la base de datos así. El `Dockerfile.db` incluye un script de inicialización automático:
+Con un Dockerfile personalizado, puedes construir y iniciar la base de datos así. El `Dockerfile.db` incluye scripts de inicialización automáticos (`sql/00_init-db.sql` → `sql/05_*`):
 
 ```bash
-# 1. Construir la imagen (ejecuta init-db.sql automáticamente)
+# 1. Construir la imagen (ejecuta sql/00..05 automáticamente en orden léxico)
 docker build -t my-mysql-db -f Dockerfile.db .
 
 # 2. Ejecutar el contenedor
@@ -89,7 +89,7 @@ docker run -d --name mysql_db \
   my-mysql-db
 ```
 
-**`init-db.sql`**: Este script se copia automáticamente a `/docker-entrypoint-initdb.d/` y ejecuta las siguientes acciones al iniciar el contenedor:
+**`sql/00_init-db.sql`**: Se copia a `/docker-entrypoint-initdb.d/` y ejecuta al iniciar el contenedor (si el volumen está vacío):
 - Crea la base de datos `appdb`
 - Crea el usuario `appuser` con password `apppassword`
 - Otorga todos los privilegios sobre `appdb`
@@ -104,26 +104,43 @@ docker exec mysql_db mysql -u root -prootpassword -e "SHOW DATABASES;"
 
 `docker-compose.yml` levanta los dos servicios juntos:
 
-- **`db`**: MySQL 8.0 construido desde `Dockerfile.db` (ejecuta `init-db.sql` automáticamente), con volumen persistente `mysql_data` y healthcheck.
+- **`db`**: MySQL 8.0 construido desde `Dockerfile.db` (ejecuta `sql/00_init-db.sql` → `sql/05_seed_demo...` en orden léxico en `/docker-entrypoint-initdb.d/`), con volumen persistente `mysql_data` y healthcheck.
 - **`server`**: Node.js + Express construido desde `server/Dockerfile`, con las variables `DB_HOST=db`, `DB_PORT=3306`, `DB_USER=appuser`, `DB_PASSWORD=apppassword`, `DB_NAME=appdb`. Arranca cuando la base de datos está healthy (`depends_on`).
 
 ```bash
-# Levantar ambos servicios
+# Levantar ambos servicios (primera vez o tras cambios en sql/*)
 docker compose up --build -d
 
 # Verificar estado
 docker compose ps
 
 # Probar el servidor
-curl http://localhost:3000   # → hello node
+curl http://localhost:3000/health   # → {"status":"ok","db":"up"}
 
-# Detener todo
+# Detener (conserva datos)
 docker compose down
+# Detener y borrar volumen para datos frescos
+docker compose down -v
 ```
 
-### Aplicar esquema y usuarios de desarrollo
+### Datos frescos en dev (tests reproducibles)
 
-Si el volumen `mysql_data` ya existía, MySQL no vuelve a ejecutar automáticamente los archivos de `/docker-entrypoint-initdb.d/`. Para aplicar el esquema y los usuarios seed sin borrar datos:
+En dev, el esquema y seed deben seguir `sql/00..05`. Como `mysql_data` es un volumen nombrado, `docker compose up --build -d` **no** re-ejecuta `docker-entrypoint-initdb.d` si el volumen ya existe (causa del bug `horario_id` faltante → `500 /api/empleados`).
+
+**Para obtener datos frescos que sigan el schema actual:**
+
+```bash
+# Linux/macOS
+./scripts/reset-db.sh
+# Windows PowerShell
+.\scripts\reset-db.ps1
+# Equivalente manual
+docker compose down -v && docker compose up --build -d
+```
+
+`reset-db.sh/ps1` borra `mysql_data`, reconstruye `db`+`server`, espera healthchecks y verifica `SHOW TABLES;` + `GET /health`.
+
+**Si no quieres borrar datos (actualización incremental sin perder datos):**
 
 ```powershell
 .\scripts\apply-db-scripts.ps1
@@ -136,7 +153,7 @@ chmod +x ./scripts/apply-db-scripts.sh
 ./scripts/apply-db-scripts.sh
 ```
 
-Ambos scripts aplican `sql/01_schema_login.sql` si falta la tabla `usuarios` y `sql/02_seed_login.sql` si todavía no hay usuarios.
+Aplican incrementalmente `00_init-db` → `01_schema_login` (si falta `usuarios`), `02_seed_login` (idempotente), `03_horarios` (crea `horarios`/`horario_dias` o añade `empleados.horario_id` si faltaba), `04_marcaciones`, `05_seed_demo...` (idempotente). Se pueden ejecutar múltiples veces sin duplicar.
 
 > Nota: si existe un contenedor llamado `mysql_db` creado manualmente con `docker run`, elimínalo primero (`docker rm -f mysql_db`) para evitar conflictos de nombre.
 
@@ -209,7 +226,7 @@ Cada módulo cumple 4 tareas: actualizar esquema de base de datos, actualizar AP
   - [x] Requisitos definidos.
   - [x] Proyecto Flutter creado (`flutter create`, `pub get`, `analyze`).
   - [x] Arquitectura definida: Flutter → API REST → Node.js → MySQL.
-  - [x] Base de datos MySQL con Docker (`Dockerfile.db` + `init-db.sql`).
+  - [x] Base de datos MySQL con Docker (`Dockerfile.db` + `sql/00_init-db.sql` → `sql/05_*`).
   - [x] Servidor base Node.js con Express (puerto 3000, responde `hello node`).
 
 - [x] Módulo 1: Login

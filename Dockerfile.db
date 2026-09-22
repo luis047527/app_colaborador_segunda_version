@@ -6,8 +6,9 @@ ENV MYSQL_DATABASE=appdb
 ENV MYSQL_USER=appuser
 ENV MYSQL_PASSWORD=apppassword
 
-# Copy initialization scripts
-COPY init-db.sql sql/01_schema_login.sql sql/02_seed_login.sql sql/03_horarios.sql sql/04_marcaciones.sql /docker-entrypoint-initdb.d/
+# Copy initialization scripts in lexical order (00..05) for deterministic init.
+# 00_init-db.sql creates DB/user (redundant with ENV MYSQL_* but explicit), then schema and seeds.
+COPY sql/00_init-db.sql sql/01_schema_login.sql sql/02_seed_login.sql sql/03_horarios.sql sql/04_marcaciones.sql sql/05_seed_demo_colaboradores_horarios.sql /docker-entrypoint-initdb.d/
 
 # Expose MySQL port
 EXPOSE 3306

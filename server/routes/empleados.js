@@ -24,7 +24,7 @@ router.get('/', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (_req, res) =>
       LEFT JOIN sedes s ON s.id = e.sede_id LEFT JOIN horarios h ON h.id = e.horario_id
       ORDER BY u.nombre, u.apellido`);
     res.json(rows);
-  } catch (_) { res.status(500).json({ error: 'Error interno del servidor' }); }
+  } catch (err) { console.error('GET /api/empleados error:', err); res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 router.get('/mio', async (req, res) => {
