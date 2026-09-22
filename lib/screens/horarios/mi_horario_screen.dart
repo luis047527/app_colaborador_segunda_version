@@ -20,15 +20,15 @@ class _MiHorarioScreenState extends State<MiHorarioScreen> {
   late Future<Map<String, dynamic>> _today = _loadToday();
 
   Future<Map<String, dynamic>> _loadToday() async {
-    final employee = Map<String, dynamic>.from(await widget.api.get('/api/empleados/mio'));
-    return Map<String, dynamic>.from(await widget.api.get('/api/empleados/${employee['id']}/horario-hoy'));
+    final employee = Map<String, dynamic>.from(await widget.api.get('/api/empleados/me'));
+    return Map<String, dynamic>.from(await widget.api.get('/api/empleados/${employee['id']}/horario'));
   }
 
   void _reload() => setState(() => _today = _loadToday());
 
   Future<void> _showWeekly() async {
     try {
-      final schedule = Map<String, dynamic>.from(await widget.api.get('/api/empleados/mio/horario-semanal'));
+      final schedule = Map<String, dynamic>.from(await widget.api.get('/api/empleados/me/horario'));
       if (!mounted) return;
       await showModalBottomSheet<void>(
         context: context,

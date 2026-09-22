@@ -1,6 +1,7 @@
-// Tests para GET /api/empleados (home Admin), /mio y /mio/horario-semanal — pool mockeado.
+// Tests para GET /api/empleados (home Admin), /me (REST-pure) y /me/horario + aliases legacy /mio — pool mockeado.
 // Semana 1: base técnica debe exponer home (lista operativa) y perfil/horario semanal del colaborador.
 // Cubre regresión del 500 por JOIN horarios (horario_id) y autorización por rol.
+// Valida tanto rutas nuevas REST-pure (/me, /me/horario, /:id/horario) como aliases deprecated (/mio).
 const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -212,6 +213,26 @@ describe('GET /api/empleados/mio', () => {
   });
 });
 
+describe('GET /api/empleados/me (REST-pure, reemplaza mio)', () => {
+  it('401 sin token', async () => {
+    const { status } = await get('/api/empleados/me', false);
+    assert.equal(status, 401);
+  });
+
+  it('404 usuario sin perfil', async () => {
+    const { status, body } = await get('/api/empleados/me', { sub: 999, rol: 'COLABORADOR' });
+    assert.equal(status, 404);
+    assert.equal(body.error, 'Usuario sin perfil de colaborador');
+  });
+
+  it('200 alias me coincide con mio', async () => {
+    const rMio = await get('/api/empleados/mio', { sub: 5, rol: 'COLABORADOR' });
+    const rMe = await get('/api/empleados/me', { sub: 5, rol: 'COLABORADOR' });
+    assert.equal(rMe.status, 200);
+    assert.deepEqual(rMe.body, rMio.body);
+  });
+});
+
 describe('GET /api/empleados/mio/horario-semanal', () => {
   it('401 sin token', async () => {
     const { status } = await get('/api/empleados/mio/horario-semanal', false);
@@ -235,5 +256,19 @@ describe('GET /api/empleados/mio/horario-semanal', () => {
     assert.equal(body.id, 2);
     assert.ok(Array.isArray(body.dias));
     assert.ok(body.dias.length >= 2);
+  });
+});
+
+describe('GET /api/empleados/me/horario (REST-pure, reemplaza mio/horario-semanal)', () => {
+  it('401 sin token', async () => {
+    const { status } = await get('/api/empleados/me/horario', false);
+    assert.equal(status, 401);
+  });
+
+  it('200 alias me/horario coincide con mio/horario-semanal', async () => {
+    const rOld = await get('/api/empleados/mio/horario-semanal', { sub: 5, rol: 'COLABORADOR' });
+    const rNew = await get('/api/empleados/me/horario', { sub: 5, rol: 'COLABORADOR' });
+    assert.equal(rNew.status, 200);
+    assert.deepEqual(rNew.body, rOld.body);
   });
 });

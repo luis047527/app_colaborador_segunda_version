@@ -24,7 +24,7 @@ class _PerfilColaboradorScreenState extends State<PerfilColaboradorScreen> {
   late Future<Map<String, dynamic>> _profile = _load();
 
   Future<Map<String, dynamic>> _load() async =>
-      Map<String, dynamic>.from(await widget.api.get('/api/empleados/mio'));
+      Map<String, dynamic>.from(await widget.api.get('/api/empleados/me'));
 
   void _reload() => setState(() => _profile = _load());
 

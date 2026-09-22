@@ -1,4 +1,4 @@
-// Tests para GET /api/empleados/:id/horario-hoy — pool mockeado.
+// Tests para GET /api/empleados/:id/horario-hoy (legacy) y /:id/horario (REST-pure) — pool mockeado.
 const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -142,5 +142,40 @@ describe('GET /api/empleados/:id/horario-hoy', () => {
     const { status, body } = await get('/api/empleados/7/horario-hoy');
     assert.equal(status, 200);
     assert.equal(body.horas_requeridas_min, 240);
+  });
+});
+
+describe('GET /api/empleados/:id/horario (REST-pure, reemplaza horario-hoy)', () => {
+  it('200 alias /horario coincide con /horario-hoy', async () => {
+    const rOld = await get('/api/empleados/7/horario-hoy');
+    const rNew = await get('/api/empleados/7/horario');
+    assert.equal(rNew.status, 200);
+    assert.equal(rNew.body.horas_requeridas_min, rOld.body.horas_requeridas_min);
+    assert.equal(rNew.body.fecha, rOld.body.fecha);
+  });
+
+  it('200 con ?fecha=YYYY-MM-DD usa fecha dada (no 500)', async () => {
+    const { status, body } = await get('/api/empleados/7/horario?fecha=2026-01-05');
+    assert.equal(status, 200);
+    assert.equal(body.fecha, '2026-01-05');
+    // 2026-01-05 es lunes (dia 1) → debe retornar horas 480 con dia mockeada
+    assert.equal(body.horas_requeridas_min, 480);
+  });
+
+  it('200 con ?date alias', async () => {
+    const { status, body } = await get('/api/empleados/7/horario?date=2026-01-06');
+    assert.equal(status, 200);
+    assert.equal(body.fecha, '2026-01-06');
+  });
+
+  it('400 fecha inválida', async () => {
+    const { status, body } = await get('/api/empleados/7/horario?fecha=not-a-date');
+    assert.equal(status, 400);
+    assert.match(body.error, /fecha inválida/);
+  });
+
+  it('403 colaborador ve horario ajeno también en /horario', async () => {
+    const { status } = await get('/api/empleados/7/horario', { sub: 9, rol: 'COLABORADOR' });
+    assert.equal(status, 403);
   });
 });

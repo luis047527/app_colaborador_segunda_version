@@ -46,25 +46,8 @@ router.get('/', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (_req, res) =>
   } catch (err) { console.error('GET /api/empleados error:', err); res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
-/**
- * @openapi
- * /api/empleados/mio:
- *   get:
- *     summary: Perfil de colaborador del usuario autenticado
- *     description: Retorna el empleado vinculado a `req.usuario.sub` con datos de usuario, sede y horario.
- *     tags: [Empleados]
- *     responses:
- *       200:
- *         description: Empleado encontrado
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/Empleado' }
- *       401:
- *         description: Token no proporcionado o inválido
- *       404:
- *         description: Usuario sin perfil de colaborador
- */
-router.get('/mio', async (req, res) => {
+// Helpers reutilizables para REST-pure + aliases legacy
+async function handleGetMe(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT e.*, u.nombre, u.apellido, u.email, u.foto_url, u.rol,
@@ -80,24 +63,9 @@ router.get('/mio', async (req, res) => {
     if (!rows[0]) return res.status(404).json({ error: 'Usuario sin perfil de colaborador' });
     res.json(rows[0]);
   } catch (_) { res.status(500).json({ error: 'Error interno del servidor' }); }
-});
+}
 
-/**
- * @openapi
- * /api/empleados/mio/horario-semanal:
- *   get:
- *     summary: Horario semanal del colaborador autenticado
- *     description: Retorna cabecera `horarios` + `horario_dias` (7 filas) para el empleado del JWT.
- *     tags: [Empleados]
- *     responses:
- *       200:
- *         description: Horario con dias
- *       401:
- *         description: Token no proporcionado o inválido
- *       404:
- *         description: Usuario sin perfil, sin horario asignado u horario no encontrado
- */
-router.get('/mio/horario-semanal', async (req, res) => {
+async function handleGetMeHorario(req, res) {
   try {
     const [rows] = await pool.query(
       'SELECT horario_id FROM empleados WHERE usuario_id = ?',
@@ -112,30 +80,9 @@ router.get('/mio/horario-semanal', async (req, res) => {
   } catch (_) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
-});
+}
 
-// Horario del día para el colaborador (criterio de éxito #5 MVP).
-// COLABORADOR solo ve el suyo; ADMIN/SUPERVISOR cualquiera.
-/**
- * @openapi
- * /api/empleados/{id}/horario-hoy:
- *   get:
- *     summary: Horario del día del empleado (fecha Lima + requeridas)
- *     tags: [Empleados]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: Fecha, fila del día y minutos requeridos
- *       403:
- *         description: Colaborador ajeno
- *       404:
- *         description: Empleado/horario/detalle inexistente
- */
-router.get('/:id/horario-hoy', async (req, res) => {
+async function handleGetHorarioById(req, res) {
   try {
     const [emp] = await pool.query(
       'SELECT id, usuario_id, horario_id FROM empleados WHERE id = ?',
@@ -147,13 +94,133 @@ router.get('/:id/horario-hoy', async (req, res) => {
     if (req.usuario.rol === 'COLABORADOR' && emp[0].usuario_id !== req.usuario.sub) {
       return res.status(403).json({ error: 'No autorizado' });
     }
-    const r = await horarioHoy(pool, req.params.id);
+    // REST-pure: ?fecha=YYYY-MM-DD (o ?date=), default hoy Lima
+    const rawFecha = req.query.fecha || req.query.date;
+    let hoy;
+    if (rawFecha) {
+      const parsed = new Date(rawFecha + 'T12:00:00');
+      if (isNaN(parsed.getTime())) return res.status(400).json({ error: 'fecha inválida, use YYYY-MM-DD' });
+      hoy = parsed;
+    }
+    const r = await horarioHoy(pool, req.params.id, hoy);
     if (r.error) return res.status(r.status).json({ error: r.error });
     res.json(r.data);
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
-});
+}
+
+/**
+ * @openapi
+ * /api/empleados/me:
+ *   get:
+ *     summary: Perfil del colaborador autenticado (REST-pure)
+ *     description: Reemplaza `GET /api/empleados/mio`. Retorna el empleado vinculado a `req.usuario.sub`.
+ *     tags: [Empleados]
+ *     responses:
+ *       200:
+ *         description: Empleado encontrado
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Empleado' }
+ *       401: { description: Token no proporcionado o inválido }
+ *       404: { description: Usuario sin perfil de colaborador }
+ */
+router.get('/me', handleGetMe);
+
+/**
+ * @openapi
+ * /api/empleados/mio:
+ *   get:
+ *     summary: Perfil del colaborador (alias legacy)
+ *     description: Deprecated. Use `GET /api/empleados/me`.
+ *     deprecated: true
+ *     tags: [Empleados]
+ *     responses:
+ *       200: { description: Empleado encontrado }
+ *       401: { description: Token no proporcionado o inválido }
+ *       404: { description: Usuario sin perfil de colaborador }
+ */
+router.get('/mio', handleGetMe);
+
+/**
+ * @openapi
+ * /api/empleados/me/horario:
+ *   get:
+ *     summary: Horario semanal del colaborador autenticado (REST-pure)
+ *     description: Reemplaza `GET /api/empleados/mio/horario-semanal`. Retorna cabecera `horarios` + `horario_dias` (7 filas).
+ *     tags: [Empleados]
+ *     responses:
+ *       200: { description: Horario con dias }
+ *       401: { description: Token no proporcionado o inválido }
+ *       404: { description: Usuario sin perfil, sin horario asignado u horario no encontrado }
+ */
+router.get('/me/horario', handleGetMeHorario);
+
+/**
+ * @openapi
+ * /api/empleados/mio/horario-semanal:
+ *   get:
+ *     summary: Horario semanal (alias legacy)
+ *     description: Deprecated. Use `GET /api/empleados/me/horario`.
+ *     deprecated: true
+ *     tags: [Empleados]
+ *     responses:
+ *       200: { description: Horario con dias }
+ *       401: { description: Token no proporcionado o inválido }
+ *       404: { description: Usuario sin perfil, sin horario asignado u horario no encontrado }
+ */
+router.get('/mio/horario-semanal', handleGetMeHorario);
+
+// Horario del día para el colaborador (criterio de éxito #5 MVP).
+// COLABORADOR solo ve el suyo; ADMIN/SUPERVISOR cualquiera.
+/**
+ * @openapi
+ * /api/empleados/{id}/horario:
+ *   get:
+ *     summary: Horario del día del empleado (REST-pure)
+ *     description: Reemplaza `GET /api/empleados/{id}/horario-hoy`. Acepta `?fecha=YYYY-MM-DD` (ó `?date=`), default hoy en zona Lima. Retorna fecha, fila del día y minutos requeridos.
+ *     tags: [Empleados]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: fecha
+ *         schema: { type: string, format: date }
+ *         description: Fecha en Lima (YYYY-MM-DD), default hoy
+ *       - in: query
+ *         name: date
+ *         schema: { type: string, format: date }
+ *         description: Alias de fecha
+ *     responses:
+ *       200: { description: Fecha, fila del día y minutos requeridos }
+ *       400: { description: fecha inválida }
+ *       403: { description: Colaborador ajeno }
+ *       404: { description: Empleado/horario/detalle inexistente }
+ */
+router.get('/:id/horario', handleGetHorarioById);
+
+/**
+ * @openapi
+ * /api/empleados/{id}/horario-hoy:
+ *   get:
+ *     summary: Horario del día (alias legacy)
+ *     description: Deprecated. Use `GET /api/empleados/{id}/horario?fecha=YYYY-MM-DD`.
+ *     deprecated: true
+ *     tags: [Empleados]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Fecha, fila del día y minutos requeridos }
+ *       403: { description: Colaborador ajeno }
+ *       404: { description: Empleado/horario/detalle inexistente }
+ */
+router.get('/:id/horario-hoy', handleGetHorarioById);
 
 // EDITABLES queda en ruta (filtro HTTP de campos permitidos).
 const EDITABLES = [

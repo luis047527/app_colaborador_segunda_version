@@ -24,10 +24,10 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   bool _registering = false;
 
   Future<_AttendanceData> _load() async {
-    final employee = Map<String, dynamic>.from(await widget.api.get('/api/empleados/mio'));
+    final employee = Map<String, dynamic>.from(await widget.api.get('/api/empleados/me'));
     Map<String, dynamic>? schedule;
     try {
-      schedule = Map<String, dynamic>.from(await widget.api.get('/api/empleados/${employee['id']}/horario-hoy'));
+      schedule = Map<String, dynamic>.from(await widget.api.get('/api/empleados/${employee['id']}/horario'));
     } on ApiException {
       schedule = null;
     }
