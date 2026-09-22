@@ -54,8 +54,12 @@ Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy`
 - Updated Flutter to new endpoints: `lib/screens/perfil/perfil_colaborador_screen.dart:27` `/me`, `lib/screens/asistencia/asistencia_screen.dart:27,30` `/me` + `/:id/horario`, `lib/screens/horarios/mi_horario_screen.dart:23,24,31` similarly.
 - Tests: extended `server/tests/empleados_get.test.js:24` with `GET /me` and `GET /me/horario` parity checks, `server/tests/horario_hoy.test.js:1` added suite `GET /:id/horario` (`?fecha`, `?date`, `400`, `403`); `server/tests/docs.test.js:23` now expects `/me`, `/me/horario`, `/{id}/horario` plus legacy. `120→130` pass, `GET /api-docs.json` lists both new and deprecated, `curl` verified `200` for `ADMIN`/`COLABORADOR` and `500` regression fixed, `flutter analyze` clean (`analysis_options.yaml` exclude added).
 
-## Endpoint audit 2026-09-22 — pending Semana 2
-- **Semana 1 fully checked** (via `server/index.js:67` + `swagger` + `tests`): `/health`, `POST /api/auth/login`, `/api/usuarios/` (+`/{id}`), `/api/empleados/` (+`/me`/`/me/horario` + deprecated `/mio`), `/api/sedes/`, `/api/horarios/` `POST` + `GET /{id}` — all have `@openapi` and `node --test` (now `130` pass). Only gap is `GET /api/horarios/` list (`server/routes/horarios.js:64` `SELECT * ORDER BY id DESC`) — undocumented, no dedicated test (Semana 1 listing for assignment UI, should add later).
+## Follow-up 3 — `GET /api/horarios/` docs gap (commit `7169fa6`)
+- **Why it existed but was unchecked:** `GET /api/horarios/` (`server/routes/horarios.js:64` `requerirRol('ADMINISTRADOR','SUPERVISOR')` + `SELECT * ORDER BY id DESC`) is required for Semana 1 assignment UI (`HorariosScreen` lists horarios to assign), yet only `POST /api/horarios/` (`:29`) and `GET /api/horarios/:id` (`:88`) had `@openapi`. `server/tests/horarios.test.js:125` covered `POST` + `GET/:id`, `server/tests/docs.test.js:23` `ESPERADAS` omitted `GET /api/horarios/`, so `GET /api-docs.json` lacked `get` for `/api/horarios/`.
+- Added `server/routes/horarios.js:64` `@openapi` `GET /api/horarios/` (`ADMIN/SUPERVISOR`, `200` array of horario headers). Verified `docker exec node_server node -e "require('./docs/swagger')"` lists `get` for `/api/horarios/` and `curl /api-docs.json` now shows it; rebuilt `server` image and confirmed `GET /api/horarios/` works via existing `horarios.test` coverage (no new test yet — TODO below).
+
+## Endpoint audit 2026-09-22 — pending Semana 2 (update 7169fa6)
+- **Semana 1 fully checked** (via `server/index.js:67` + `swagger` + `tests`): `/health`, `POST /api/auth/login`, `/api/usuarios/` (+`/{id}`), `/api/empleados/` (+`/me`/`/me/horario` + deprecated `/mio`), `/api/sedes/`, `/api/horarios/` (`GET` + `POST` + `GET /{id}`) — now all have `@openapi` and `node --test` (still `130` pass; `GET /api/horarios/` docs added but dedicated `GET` list test still to add — see TODO).
 - **Semana 2 to be checked (marcaciones, per `docs/Alcance_Funcional_Lumibell_MVP_1_mes.md:66` Semana 2 — QR dinámico/GPS/validación/secuencia):** endpoints exist but **unchecked** (no `@openapi`, no `server/tests/marcaciones.test.js`):
   - `POST /api/marcaciones/qr/sede/:sedeId` (`server/routes/marcaciones.js:12` `requerirRol('ADMINISTRADOR','SUPERVISOR')` → `Sedes.buscarFila` + `crearQr`)
   - `GET /api/marcaciones/mio?desde&hasta` (`:20` `requerirRol('COLABORADOR')`, default `hasta=today`, `desde=hasta-30d`, `400` if `desde>hasta`)
@@ -67,7 +71,7 @@ Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy`
 - [x] Semana 1 home endpoints documented & tested
 - [x] REST-pure `me`/`horario` with deprecated aliases; FE migrated
 - [x] `coverage/` removed & added to `.gitignore:49` (`6bb687a`)
-- [ ] Semana 1 gap: add `GET /api/horarios/` OpenAPI + test (list for assignment)
+- [x] `GET /api/horarios/` OpenAPI added (`7169fa6`); remaining: add dedicated `GET /api/horarios/` test (list `200`/`401`/`403`)
 - [ ] Semana 2: check marcaciones endpoints above — add OpenAPI + `marcaciones.test.js` + docs/roles asserts
 - [ ] Consider `npm run db:reset` alias and eventual removal of deprecated `/mio`/`horario-hoy` after FE rollout + `/api/v1` versioning (`docs/notes-david-sep-9.md:38`)
 
