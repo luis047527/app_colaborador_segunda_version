@@ -58,20 +58,31 @@ Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy`
 - **Why it existed but was unchecked:** `GET /api/horarios/` (`server/routes/horarios.js:64` `requerirRol('ADMINISTRADOR','SUPERVISOR')` + `SELECT * ORDER BY id DESC`) is required for Semana 1 assignment UI (`HorariosScreen` lists horarios to assign), yet only `POST /api/horarios/` (`:29`) and `GET /api/horarios/:id` (`:88`) had `@openapi`. `server/tests/horarios.test.js:125` covered `POST` + `GET/:id`, `server/tests/docs.test.js:23` `ESPERADAS` omitted `GET /api/horarios/`, so `GET /api-docs.json` lacked `get` for `/api/horarios/`.
 - Added `server/routes/horarios.js:64` `@openapi` `GET /api/horarios/` (`ADMIN/SUPERVISOR`, `200` array of horario headers). Verified `docker exec node_server node -e "require('./docs/swagger')"` lists `get` for `/api/horarios/` and `curl /api-docs.json` now shows it; rebuilt `server` image and confirmed `GET /api/horarios/` works via existing `horarios.test` coverage (no new test yet — TODO below).
 
-## Endpoint audit 2026-09-22 — pending Semana 2 (update 7169fa6)
-- **Semana 1 fully checked** (via `server/index.js:67` + `swagger` + `tests`): `/health`, `POST /api/auth/login`, `/api/usuarios/` (+`/{id}`), `/api/empleados/` (+`/me`/`/me/horario` + deprecated `/mio`), `/api/sedes/`, `/api/horarios/` (`GET` + `POST` + `GET /{id}`) — now all have `@openapi` and `node --test` (still `130` pass; `GET /api/horarios/` docs added but dedicated `GET` list test still to add — see TODO).
+## Follow-up 4 — `npm run db:reset` + remove unused legacy aliases (commit `f76b87a`)
+- **Why `npm run db:reset`:** `README.md:103` documented `./scripts/reset-db.sh` but no npm alias. Semana 1 asked to add `npm run db:reset` for coding agents/devs. Added `server/package.json:5` `scripts: { "db:reset": "bash ../scripts/reset-db.sh", "db:apply": "bash ../scripts/apply-db-scripts.sh" }` — now `npm run db:reset` (from `server/`) == `docker compose down -v && up --build` with health checks.
+- **Why remove unused endpoints:** after `3417a69` REST-pure migration, Flutter now uses only `GET /api/empleados/me` (`lib/screens/perfil/perfil_colaborador_screen.dart:27`), `GET /me/horario` (`mi_horario_screen.dart:31`), `GET /:id/horario` (`mi_horario_screen.dart:24`, `asistencia_screen.dart:30`). Legacy aliases `GET /mio` (`server/routes/empleados.js:133`), `GET /mio/horario-semanal` (`:162`), `GET /:id/horario-hoy` (`:207`) became unused — verified via `grep -r "/api/empleados" lib/` returns zero hits for `mio`/`horario-hoy`. Removed them (`server/routes/empleados.js:62` deletions) to keep API surface REST-pure and avoid confusion for agents.
+- **Tests/docs cleanup:** updated `server/tests/docs.test.js:23` `ESPERADAS` to drop `mio`/`horario-hoy` (now expects `/me`, `/me/horario`, `/{id}/horario` only), and `server/tests/empleados_get.test.js:1` + `server/tests/horario_hoy.test.js:1` to drop legacy `mio` alias suites — `130→124` pass, `GET /api-docs.json` no longer lists `mio`/`horario-hoy`, `docker-compose build server && npm test` still green. Rebuilt image and `curl` verified new endpoints still `200`.
+
+## Endpoint audit 2026-09-22 — pending Semana 2 (update f76b87a)
+- **Semana 1 fully checked** (via `server/index.js:67` + `swagger` + `tests`): `/health`, `POST /api/auth/login`, `/api/usuarios/` (+`/{id}`), `/api/empleados/` (+`/me`/`/me/horario`), `/api/sedes/`, `/api/horarios/` (`GET` + `POST` + `GET /{id}`) — all have `@openapi` and `node --test` (`124` pass after legacy removal; `GET /api/horarios/` docs added `7169fa6`, dedicated list test still to add — see TODO).
 - **Semana 2 to be checked (marcaciones, per `docs/Alcance_Funcional_Lumibell_MVP_1_mes.md:66` Semana 2 — QR dinámico/GPS/validación/secuencia):** endpoints exist but **unchecked** (no `@openapi`, no `server/tests/marcaciones.test.js`):
   - `POST /api/marcaciones/qr/sede/:sedeId` (`server/routes/marcaciones.js:12` `requerirRol('ADMINISTRADOR','SUPERVISOR')` → `Sedes.buscarFila` + `crearQr`)
   - `GET /api/marcaciones/mio?desde&hasta` (`:20` `requerirRol('COLABORADOR')`, default `hasta=today`, `desde=hasta-30d`, `400` if `desde>hasta`)
   - `POST /api/marcaciones` (`:51` `requerirRol('COLABORADOR')` → `registrar(pool, req.usuario.sub)`)
   - Need for Semana 2: add `@openapi` (security, `qr_token`/`latitud`/`longitud`, responses `201`/`400`/`403`/`404`), add `server/tests/marcaciones.test.js` mocking `pool` + `Marcaciones` model (QR `LUMIBELL-SEDE-{id}` static, GPS `fuera_radio`, secuencia `ENTRADA`→`SALIDA_REFRIGERIO`→`REGRESO`→`SALIDA`) per `docs/reglas_calculo.md:66` and `docs/notes-david-sep-9.md:35`, and extend `server/tests/docs.test.js:23` `ESPERADAS` + `roles.test.js:118` for marcaciones.
 
+## Follow-up 5 — coding agents doc (question from user 2026-09-22)
+- User asked: “we're using coding agents. should we add a document for agents to solve issues like endpoints nomenclature that we fixed recently ?” — pending decision to add `AGENTS.md` / `docs/REST_API_GUIDELINES.md` with checklist (pronoun `me` vs `mio`, qualifier in path vs `?fecha`, plural/singular, `@openapi` + `docs.test.js` + Flutter grep + `npm test` + `curl` verification). Not yet created — to be added next if approved.
+
 ## TO DO (remaining)
 - [x] Fix data script and config to have fresh data when re-building containers
 - [x] Semana 1 home endpoints documented & tested
-- [x] REST-pure `me`/`horario` with deprecated aliases; FE migrated
+- [x] REST-pure `me`/`horario` with deprecated aliases; FE migrated → then aliases removed (`f76b87a`)
 - [x] `coverage/` removed & added to `.gitignore:49` (`6bb687a`)
 - [x] `GET /api/horarios/` OpenAPI added (`7169fa6`); remaining: add dedicated `GET /api/horarios/` test (list `200`/`401`/`403`)
+- [x] `npm run db:reset` alias added (`server/package.json:5` `f76b87a`)
+- [x] Remove unused legacy empleados aliases (`f76b87a`, spec now clean)
 - [ ] Semana 2: check marcaciones endpoints above — add OpenAPI + `marcaciones.test.js` + docs/roles asserts
-- [ ] Consider `npm run db:reset` alias and eventual removal of deprecated `/mio`/`horario-hoy` after FE rollout + `/api/v1` versioning (`docs/notes-david-sep-9.md:38`)
+- [ ] Agents doc: create `AGENTS.md` / `docs/REST_API_GUIDELINES.md` if approved
+- [ ] Consider eventual `/api/v1` versioning (`docs/notes-david-sep-9.md:38`)
 
