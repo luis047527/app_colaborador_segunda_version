@@ -54,17 +54,18 @@ Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy`
 - Updated Flutter to new endpoints: `lib/screens/perfil/perfil_colaborador_screen.dart:27` `/me`, `lib/screens/asistencia/asistencia_screen.dart:27,30` `/me` + `/:id/horario`, `lib/screens/horarios/mi_horario_screen.dart:23,24,31` similarly.
 - Tests: extended `server/tests/empleados_get.test.js:24` with `GET /me` and `GET /me/horario` parity checks, `server/tests/horario_hoy.test.js:1` added suite `GET /:id/horario` (`?fecha`, `?date`, `400`, `403`); `server/tests/docs.test.js:23` now expects `/me`, `/me/horario`, `/{id}/horario` plus legacy. `120→130` pass, `GET /api-docs.json` lists both new and deprecated, `curl` verified `200` for `ADMIN`/`COLABORADOR` and `500` regression fixed, `flutter analyze` clean (`analysis_options.yaml` exclude added).
 
-## Follow-up 3 — `GET /api/horarios/` docs gap (commit `7169fa6`)
+## Follow-up 3 — `GET /api/horarios/` docs gap (commit `7169fa6` + missing test added now)
 - **Why it existed but was unchecked:** `GET /api/horarios/` (`server/routes/horarios.js:64` `requerirRol('ADMINISTRADOR','SUPERVISOR')` + `SELECT * ORDER BY id DESC`) is required for Semana 1 assignment UI (`HorariosScreen` lists horarios to assign), yet only `POST /api/horarios/` (`:29`) and `GET /api/horarios/:id` (`:88`) had `@openapi`. `server/tests/horarios.test.js:125` covered `POST` + `GET/:id`, `server/tests/docs.test.js:23` `ESPERADAS` omitted `GET /api/horarios/`, so `GET /api-docs.json` lacked `get` for `/api/horarios/`.
-- Added `server/routes/horarios.js:64` `@openapi` `GET /api/horarios/` (`ADMIN/SUPERVISOR`, `200` array of horario headers). Verified `docker exec node_server node -e "require('./docs/swagger')"` lists `get` for `/api/horarios/` and `curl /api-docs.json` now shows it; rebuilt `server` image and confirmed `GET /api/horarios/` works via existing `horarios.test` coverage (no new test yet — TODO below).
+- Added `server/routes/horarios.js:64` `@openapi` `GET /api/horarios/` (`ADMIN/SUPERVISOR`, `200` array of horario headers). Verified `docker exec node_server node -e "require('./docs/swagger')"` lists `get` for `/api/horarios/` and `curl /api-docs.json` now shows it; rebuilt `server` image and confirmed `GET /api/horarios/` works.
+- **Test added (now, after `7169fa6`):** extended `server/tests/horarios.test.js:14` `fakePool` to mock `SELECT * FROM horarios ORDER BY id DESC` and added `describe('GET /api/horarios')` (`401` sin token, `403` `COLABORADOR`, `200` `ADMIN` list 2 horarios, `200` `SUPERVISOR`). Tests `124→128` pass (`docker exec node_server npm test`), closing last Semana 1 gap.
 
 ## Follow-up 4 — `npm run db:reset` + remove unused legacy aliases (commit `f76b87a`)
 - **Why `npm run db:reset`:** `README.md:103` documented `./scripts/reset-db.sh` but no npm alias. Semana 1 asked to add `npm run db:reset` for coding agents/devs. Added `server/package.json:5` `scripts: { "db:reset": "bash ../scripts/reset-db.sh", "db:apply": "bash ../scripts/apply-db-scripts.sh" }` — now `npm run db:reset` (from `server/`) == `docker compose down -v && up --build` with health checks.
 - **Why remove unused endpoints:** after `3417a69` REST-pure migration, Flutter now uses only `GET /api/empleados/me` (`lib/screens/perfil/perfil_colaborador_screen.dart:27`), `GET /me/horario` (`mi_horario_screen.dart:31`), `GET /:id/horario` (`mi_horario_screen.dart:24`, `asistencia_screen.dart:30`). Legacy aliases `GET /mio` (`server/routes/empleados.js:133`), `GET /mio/horario-semanal` (`:162`), `GET /:id/horario-hoy` (`:207`) became unused — verified via `grep -r "/api/empleados" lib/` returns zero hits for `mio`/`horario-hoy`. Removed them (`server/routes/empleados.js:62` deletions) to keep API surface REST-pure and avoid confusion for agents.
 - **Tests/docs cleanup:** updated `server/tests/docs.test.js:23` `ESPERADAS` to drop `mio`/`horario-hoy` (now expects `/me`, `/me/horario`, `/{id}/horario` only), and `server/tests/empleados_get.test.js:1` + `server/tests/horario_hoy.test.js:1` to drop legacy `mio` alias suites — `130→124` pass, `GET /api-docs.json` no longer lists `mio`/`horario-hoy`, `docker-compose build server && npm test` still green. Rebuilt image and `curl` verified new endpoints still `200`.
 
-## Endpoint audit 2026-09-22 — pending Semana 2 (update f76b87a)
-- **Semana 1 fully checked** (via `server/index.js:67` + `swagger` + `tests`): `/health`, `POST /api/auth/login`, `/api/usuarios/` (+`/{id}`), `/api/empleados/` (+`/me`/`/me/horario`), `/api/sedes/`, `/api/horarios/` (`GET` + `POST` + `GET /{id}`) — all have `@openapi` and `node --test` (`124` pass after legacy removal; `GET /api/horarios/` docs added `7169fa6`, dedicated list test still to add — see TODO).
+## Endpoint audit 2026-09-22 — pending Semana 2 (update after `GET /horarios` test)
+- **Semana 1 fully checked** (via `server/index.js:67` + `swagger` + `tests`): `/health`, `POST /api/auth/login`, `/api/usuarios/` (+`/{id}`), `/api/empleados/` (+`/me`/`/me/horario`), `/api/sedes/`, `/api/horarios/` (`GET` + `POST` + `GET /{id}`) — all have `@openapi` and `node --test` (`128` pass; `GET /api/horarios/` docs `7169fa6` + list test added now).
 - **Semana 2 to be checked (marcaciones, per `docs/Alcance_Funcional_Lumibell_MVP_1_mes.md:66` Semana 2 — QR dinámico/GPS/validación/secuencia):** endpoints exist but **unchecked** (no `@openapi`, no `server/tests/marcaciones.test.js`):
   - `POST /api/marcaciones/qr/sede/:sedeId` (`server/routes/marcaciones.js:12` `requerirRol('ADMINISTRADOR','SUPERVISOR')` → `Sedes.buscarFila` + `crearQr`)
   - `GET /api/marcaciones/mio?desde&hasta` (`:20` `requerirRol('COLABORADOR')`, default `hasta=today`, `desde=hasta-30d`, `400` if `desde>hasta`)
@@ -84,12 +85,11 @@ Also tested `GET /api/empleados/mio`, `/mio/horario-semanal`, `/:id/horario-hoy`
 - [x] Semana 1 home endpoints documented & tested
 - [x] REST-pure `me`/`horario` with deprecated aliases; FE migrated → then aliases removed (`f76b87a`)
 - [x] `coverage/` removed & added to `.gitignore:49` (`6bb687a`)
-- [x] `GET /api/horarios/` OpenAPI added (`7169fa6`); remaining: add dedicated `GET /api/horarios/` test (list `200`/`401`/`403`)
+- [x] `GET /api/horarios/` OpenAPI added (`7169fa6`) + list test added (`server/tests/horarios.test.js:51,210`, `128` pass)
 - [x] `npm run db:reset` alias added (`server/package.json:5` `f76b87a`)
 - [x] Remove unused legacy empleados aliases (`f76b87a`, spec now clean)
 - [x] Agents doc added (`AGENTS.md:1` — `1da7ea7`, per user approval 2026-09-22)
-- [ ] Pending evidence from Luis about calcs for Semana 1 (see above) — blocker to mark Semana 1 approved
-- [ ] `GET /api/horarios/` list test (last Semana 1 gap)
+- [ ] Pending evidence from Luis about calcs for Semana 1 (see above) — last blocker to mark Semana 1 approved
 
 ## Next iteration — Semana 2 (after Semana 1 approved)
 > Not a TODO for current Semana 1. Track here per `Alcance §4 Semana 2 — Marcación` to start only after Semana 1 is approved.
