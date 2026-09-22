@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "db:reset": "bash ../scripts/reset-db.sh",
+    "db:apply": "bash ../scripts/apply-db-scripts.sh"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -114,8 +114,8 @@ async function handleGetHorarioById(req, res) {
  * @openapi
  * /api/empleados/me:
  *   get:
- *     summary: Perfil del colaborador autenticado (REST-pure)
- *     description: Reemplaza `GET /api/empleados/mio`. Retorna el empleado vinculado a `req.usuario.sub`.
+ *     summary: Perfil del colaborador autenticado
+ *     description: Retorna el empleado vinculado a `req.usuario.sub`.
  *     tags: [Empleados]
  *     responses:
  *       200:
@@ -130,25 +130,10 @@ router.get('/me', handleGetMe);
 
 /**
  * @openapi
- * /api/empleados/mio:
- *   get:
- *     summary: Perfil del colaborador (alias legacy)
- *     description: Deprecated. Use `GET /api/empleados/me`.
- *     deprecated: true
- *     tags: [Empleados]
- *     responses:
- *       200: { description: Empleado encontrado }
- *       401: { description: Token no proporcionado o inválido }
- *       404: { description: Usuario sin perfil de colaborador }
- */
-router.get('/mio', handleGetMe);
-
-/**
- * @openapi
  * /api/empleados/me/horario:
  *   get:
- *     summary: Horario semanal del colaborador autenticado (REST-pure)
- *     description: Reemplaza `GET /api/empleados/mio/horario-semanal`. Retorna cabecera `horarios` + `horario_dias` (7 filas).
+ *     summary: Horario semanal del colaborador autenticado
+ *     description: Retorna cabecera `horarios` + `horario_dias` (7 filas).
  *     tags: [Empleados]
  *     responses:
  *       200: { description: Horario con dias }
@@ -157,29 +142,14 @@ router.get('/mio', handleGetMe);
  */
 router.get('/me/horario', handleGetMeHorario);
 
-/**
- * @openapi
- * /api/empleados/mio/horario-semanal:
- *   get:
- *     summary: Horario semanal (alias legacy)
- *     description: Deprecated. Use `GET /api/empleados/me/horario`.
- *     deprecated: true
- *     tags: [Empleados]
- *     responses:
- *       200: { description: Horario con dias }
- *       401: { description: Token no proporcionado o inválido }
- *       404: { description: Usuario sin perfil, sin horario asignado u horario no encontrado }
- */
-router.get('/mio/horario-semanal', handleGetMeHorario);
-
 // Horario del día para el colaborador (criterio de éxito #5 MVP).
 // COLABORADOR solo ve el suyo; ADMIN/SUPERVISOR cualquiera.
 /**
  * @openapi
  * /api/empleados/{id}/horario:
  *   get:
- *     summary: Horario del día del empleado (REST-pure)
- *     description: Reemplaza `GET /api/empleados/{id}/horario-hoy`. Acepta `?fecha=YYYY-MM-DD` (ó `?date=`), default hoy en zona Lima. Retorna fecha, fila del día y minutos requeridos.
+ *     summary: Horario del día del empleado
+ *     description: Acepta `?fecha=YYYY-MM-DD` (ó `?date=`), default hoy en zona Lima. Retorna fecha, fila del día y minutos requeridos.
  *     tags: [Empleados]
  *     parameters:
  *       - in: path
@@ -201,26 +171,6 @@ router.get('/mio/horario-semanal', handleGetMeHorario);
  *       404: { description: Empleado/horario/detalle inexistente }
  */
 router.get('/:id/horario', handleGetHorarioById);
-
-/**
- * @openapi
- * /api/empleados/{id}/horario-hoy:
- *   get:
- *     summary: Horario del día (alias legacy)
- *     description: Deprecated. Use `GET /api/empleados/{id}/horario?fecha=YYYY-MM-DD`.
- *     deprecated: true
- *     tags: [Empleados]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200: { description: Fecha, fila del día y minutos requeridos }
- *       403: { description: Colaborador ajeno }
- *       404: { description: Empleado/horario/detalle inexistente }
- */
-router.get('/:id/horario-hoy', handleGetHorarioById);
 
 // EDITABLES queda en ruta (filtro HTTP de campos permitidos).
 const EDITABLES = [

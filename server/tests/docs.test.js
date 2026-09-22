@@ -23,14 +23,11 @@ const ESPERADAS = {
   '/api/empleados/': ['get', 'post'],
   '/api/empleados/me': ['get'],
   '/api/empleados/me/horario': ['get'],
-  '/api/empleados/mio': ['get'],
-  '/api/empleados/mio/horario-semanal': ['get'],
   '/api/empleados/{id}': ['put'],
   '/api/empleados/{id}/horario': ['get'],
-  '/api/empleados/{id}/horario-hoy': ['get'],
   '/api/sedes/': ['get', 'post'],
   '/api/sedes/{id}': ['get', 'put', 'delete'],
-  '/api/horarios/': ['post'],
+  '/api/horarios/': ['get', 'post'],
   '/api/horarios/{id}': ['get'],
 };
 

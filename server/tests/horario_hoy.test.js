@@ -1,4 +1,4 @@
-// Tests para GET /api/empleados/:id/horario-hoy (legacy) y /:id/horario (REST-pure) — pool mockeado.
+// Tests para GET /api/empleados/:id/horario (REST-pure) — pool mockeado.
 const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -70,25 +70,25 @@ async function get(url, payload) {
   return { status: res.status, body: await res.json() };
 }
 
-describe('GET /api/empleados/:id/horario-hoy', () => {
+describe('GET /api/empleados/:id/horario', () => {
   it('401 sin token', async () => {
-    const { status } = await get('/api/empleados/7/horario-hoy', false);
+    const { status } = await get('/api/empleados/7/horario', false);
     assert.equal(status, 401);
   });
 
   it('404 empleado inexistente', async () => {
     behavior.emp = null;
-    const { status } = await get('/api/empleados/999/horario-hoy');
+    const { status } = await get('/api/empleados/999/horario');
     assert.equal(status, 404);
   });
 
   it('403 colaborador ve horario ajeno', async () => {
-    const { status } = await get('/api/empleados/7/horario-hoy', { sub: 9, rol: 'COLABORADOR' });
+    const { status } = await get('/api/empleados/7/horario', { sub: 9, rol: 'COLABORADOR' });
     assert.equal(status, 403);
   });
 
   it('200 colaborador ve el suyo', async () => {
-    const { status, body } = await get('/api/empleados/7/horario-hoy', {
+    const { status, body } = await get('/api/empleados/7/horario', {
       sub: 5,
       rol: 'COLABORADOR',
     });
@@ -98,18 +98,18 @@ describe('GET /api/empleados/:id/horario-hoy', () => {
 
   it('404 sin horario asignado', async () => {
     behavior.emp = { id: 7, usuario_id: 5, horario_id: null };
-    const { status } = await get('/api/empleados/7/horario-hoy');
+    const { status } = await get('/api/empleados/7/horario');
     assert.equal(status, 404);
   });
 
   it('404 horario borrado', async () => {
     behavior.header = null;
-    const { status } = await get('/api/empleados/7/horario-hoy');
+    const { status } = await get('/api/empleados/7/horario');
     assert.equal(status, 404);
   });
 
   it('200 full-time req 480', async () => {
-    const { status, body } = await get('/api/empleados/7/horario-hoy');
+    const { status, body } = await get('/api/empleados/7/horario');
     assert.equal(status, 200);
     assert.ok(body.fecha);
     assert.ok(body.dia_semana >= 1 && body.dia_semana <= 7);
@@ -125,7 +125,7 @@ describe('GET /api/empleados/:id/horario-hoy', () => {
       salida: null,
       es_descanso: 1,
     };
-    const { status, body } = await get('/api/empleados/7/horario-hoy');
+    const { status, body } = await get('/api/empleados/7/horario');
     assert.equal(status, 200);
     assert.equal(body.horas_requeridas_min, 0);
   });
@@ -139,20 +139,13 @@ describe('GET /api/empleados/:id/horario-hoy', () => {
       salida: '19:00:00',
       es_descanso: 0,
     };
-    const { status, body } = await get('/api/empleados/7/horario-hoy');
+    const { status, body } = await get('/api/empleados/7/horario');
     assert.equal(status, 200);
     assert.equal(body.horas_requeridas_min, 240);
   });
 });
 
-describe('GET /api/empleados/:id/horario (REST-pure, reemplaza horario-hoy)', () => {
-  it('200 alias /horario coincide con /horario-hoy', async () => {
-    const rOld = await get('/api/empleados/7/horario-hoy');
-    const rNew = await get('/api/empleados/7/horario');
-    assert.equal(rNew.status, 200);
-    assert.equal(rNew.body.horas_requeridas_min, rOld.body.horas_requeridas_min);
-    assert.equal(rNew.body.fecha, rOld.body.fecha);
-  });
+describe('GET /api/empleados/:id/horario con query ?fecha', () => {
 
   it('200 con ?fecha=YYYY-MM-DD usa fecha dada (no 500)', async () => {
     const { status, body } = await get('/api/empleados/7/horario?fecha=2026-01-05');

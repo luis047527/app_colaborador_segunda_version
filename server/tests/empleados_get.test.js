@@ -1,7 +1,6 @@
-// Tests para GET /api/empleados (home Admin), /me (REST-pure) y /me/horario + aliases legacy /mio — pool mockeado.
+// Tests para GET /api/empleados (home Admin), /me y /me/horario (REST-pure) — pool mockeado.
 // Semana 1: base técnica debe exponer home (lista operativa) y perfil/horario semanal del colaborador.
 // Cubre regresión del 500 por JOIN horarios (horario_id) y autorización por rol.
-// Valida tanto rutas nuevas REST-pure (/me, /me/horario, /:id/horario) como aliases deprecated (/mio).
 const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -192,28 +191,7 @@ describe('GET /api/empleados (home Admin/Supervisor)', () => {
   });
 });
 
-describe('GET /api/empleados/mio', () => {
-  it('401 sin token', async () => {
-    const { status } = await get('/api/empleados/mio', false);
-    assert.equal(status, 401);
-  });
-
-  it('404 usuario sin perfil', async () => {
-    const { status, body } = await get('/api/empleados/mio', { sub: 999, rol: 'COLABORADOR' });
-    assert.equal(status, 404);
-    assert.equal(body.error, 'Usuario sin perfil de colaborador');
-  });
-
-  it('200 retorna empleado del JWT con sede y horario', async () => {
-    const { status, body } = await get('/api/empleados/mio', { sub: 5, rol: 'COLABORADOR' });
-    assert.equal(status, 200);
-    assert.equal(body.codigo_empleado, 'LUM-0003');
-    assert.equal(body.sede_nombre, 'Sede Principal Lima');
-    assert.equal(body.horario_nombre, 'Part Time');
-  });
-});
-
-describe('GET /api/empleados/me (REST-pure, reemplaza mio)', () => {
+describe('GET /api/empleados/me', () => {
   it('401 sin token', async () => {
     const { status } = await get('/api/empleados/me', false);
     assert.equal(status, 401);
@@ -225,50 +203,37 @@ describe('GET /api/empleados/me (REST-pure, reemplaza mio)', () => {
     assert.equal(body.error, 'Usuario sin perfil de colaborador');
   });
 
-  it('200 alias me coincide con mio', async () => {
-    const rMio = await get('/api/empleados/mio', { sub: 5, rol: 'COLABORADOR' });
-    const rMe = await get('/api/empleados/me', { sub: 5, rol: 'COLABORADOR' });
-    assert.equal(rMe.status, 200);
-    assert.deepEqual(rMe.body, rMio.body);
-  });
-});
-
-describe('GET /api/empleados/mio/horario-semanal', () => {
-  it('401 sin token', async () => {
-    const { status } = await get('/api/empleados/mio/horario-semanal', false);
-    assert.equal(status, 401);
-  });
-
-  it('404 sin perfil', async () => {
-    const { status } = await get('/api/empleados/mio/horario-semanal', { sub: 999, rol: 'COLABORADOR' });
-    assert.equal(status, 404);
-  });
-
-  it('404 sin horario asignado', async () => {
-    const { status, body } = await get('/api/empleados/mio/horario-semanal', { sub: 998, rol: 'COLABORADOR' });
-    assert.equal(status, 404);
-    assert.match(body.error, /sin horario/);
-  });
-
-  it('200 horario con 7 dias (o mock 2)', async () => {
-    const { status, body } = await get('/api/empleados/mio/horario-semanal', { sub: 5, rol: 'COLABORADOR' });
+  it('200 retorna empleado del JWT con sede y horario', async () => {
+    const { status, body } = await get('/api/empleados/me', { sub: 5, rol: 'COLABORADOR' });
     assert.equal(status, 200);
-    assert.equal(body.id, 2);
-    assert.ok(Array.isArray(body.dias));
-    assert.ok(body.dias.length >= 2);
+    assert.equal(body.codigo_empleado, 'LUM-0003');
+    assert.equal(body.sede_nombre, 'Sede Principal Lima');
+    assert.equal(body.horario_nombre, 'Part Time');
   });
 });
 
-describe('GET /api/empleados/me/horario (REST-pure, reemplaza mio/horario-semanal)', () => {
+describe('GET /api/empleados/me/horario', () => {
   it('401 sin token', async () => {
     const { status } = await get('/api/empleados/me/horario', false);
     assert.equal(status, 401);
   });
 
-  it('200 alias me/horario coincide con mio/horario-semanal', async () => {
-    const rOld = await get('/api/empleados/mio/horario-semanal', { sub: 5, rol: 'COLABORADOR' });
-    const rNew = await get('/api/empleados/me/horario', { sub: 5, rol: 'COLABORADOR' });
-    assert.equal(rNew.status, 200);
-    assert.deepEqual(rNew.body, rOld.body);
+  it('404 sin perfil', async () => {
+    const { status } = await get('/api/empleados/me/horario', { sub: 999, rol: 'COLABORADOR' });
+    assert.equal(status, 404);
+  });
+
+  it('404 sin horario asignado', async () => {
+    const { status, body } = await get('/api/empleados/me/horario', { sub: 998, rol: 'COLABORADOR' });
+    assert.equal(status, 404);
+    assert.match(body.error, /sin horario/);
+  });
+
+  it('200 horario con dias', async () => {
+    const { status, body } = await get('/api/empleados/me/horario', { sub: 5, rol: 'COLABORADOR' });
+    assert.equal(status, 200);
+    assert.equal(body.id, 2);
+    assert.ok(Array.isArray(body.dias));
+    assert.ok(body.dias.length >= 2);
   });
 });
