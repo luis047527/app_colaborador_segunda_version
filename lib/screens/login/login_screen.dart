@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
+import '../../widgets/lumibell_ui.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.authService});
@@ -345,35 +346,7 @@ class _BrandHeader extends StatelessWidget {
         height: compact ? 152 : 176,
         color: const Color(0xFFF4D9C0),
         alignment: Alignment.center,
-        child: Semantics(
-          label: 'Lumibell Studios',
-          header: true,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
-              const Text('LUMIBELL',
-                  style: TextStyle(
-                      color: Color(0xFF171313),
-                      fontSize: 39,
-                      fontWeight: FontWeight.w300,
-                      letterSpacing: 1.2,
-                      height: 1)),
-              Padding(
-                padding: const EdgeInsets.only(left: 7, bottom: 1),
-                child: Icon(Icons.camera_alt_outlined,
-                    size: 38, color: const Color(0xFF171313).withValues(alpha: .9)),
-              ),
-            ]),
-            const SizedBox(height: 7),
-            const Padding(
-                padding: EdgeInsets.only(left: 108),
-                child: Text('S T U D I O S',
-                    style: TextStyle(
-                        color: Color(0xFF5B514D),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 5.2))),
-          ]),
-        ),
+        child: LumibellLogo(height: compact ? 104 : 118),
       );
 }
 

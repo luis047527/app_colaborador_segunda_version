@@ -46,3 +46,10 @@ app.*.map.json
 
 # Node
 node_modules/
+
+# Coverage (flutter test --coverage / c8)
+coverage/
+lcov.info
+
+# Local DevTools prefs
+devtools_options.yaml

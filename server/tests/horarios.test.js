@@ -56,6 +56,9 @@ const fakePool = {
     if (sql.startsWith('SELECT * FROM horarios WHERE id = ?')) {
       return [behavior.horario ? [behavior.horario] : []];
     }
+    if (sql.startsWith('SELECT * FROM horarios ORDER BY id DESC')) {
+      return [behavior.horario ? [behavior.horario, { ...behavior.horario, id: 51, nombre: 'PART_TIME' }] : []];
+    }
     if (sql.includes('FROM horario_dias WHERE horario_id = ?')) {
       return [behavior.dias];
     }
@@ -204,6 +207,35 @@ describe('POST /api/horarios', () => {
     assert.equal(tx.committed, false);
     assert.equal(tx.rolledBack, true);
     assert.equal(tx.released, true);
+  });
+});
+
+describe('GET /api/horarios', () => {
+  it('401 sin token', async () => {
+    const { status } = await call('GET', '/api/horarios/', undefined, false);
+    assert.equal(status, 401);
+  });
+
+  it('403 COLABORADOR no autorizado', async () => {
+    const colabToken = () => jwt.sign({ sub: 5, rol: 'COLABORADOR' }, 'test-secret');
+    const headers = { Authorization: `Bearer ${colabToken()}` };
+    const res = await fetch(`${base}/api/horarios/`, { headers });
+    assert.equal(res.status, 403);
+  });
+
+  it('200 ADMIN lista con 2 horarios', async () => {
+    const { status, body } = await call('GET', '/api/horarios/');
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(body));
+    assert.equal(body.length, 2);
+    assert.equal(body[0].nombre, 'FULL_TIME');
+  });
+
+  it('200 SUPERVISOR también autorizado', async () => {
+    const supToken = () => jwt.sign({ sub: 2, rol: 'SUPERVISOR' }, 'test-secret');
+    const headers = { Authorization: `Bearer ${supToken()}` };
+    const res = await fetch(`${base}/api/horarios/`, { headers });
+    assert.equal(res.status, 200);
   });
 });
 
