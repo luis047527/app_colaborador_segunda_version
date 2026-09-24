@@ -67,10 +67,7 @@ solo guarda datos crudos + validaciones estructurales.
 
 - Orden válido con refrigerio: `ENTRADA → SAL_REF → REG_REF → SALIDA`.
   Sin refrigerio: `ENTRADA → SALIDA`.
-- El backend es la autoridad: cada `POST /api/marcaciones` valida tipo permitido,
-  orden, duplicados (una aceptada por tipo/día), usuario activo y día no descanso.
-- Intentos rechazados **se guardan** como `RECHAZADA + motivo` (trazabilidad del
-  piloto), salvo JWT sin empleado (imposible por FK).
+- El registro de vacaciones debe seguir la siguiente lógica, inicialmente asignar una cantidad de días por año, luego tener la posibilidad de ir distribuyendo esos días de vacaciones en el año, para lo que debemos de tener la posibilidad de asignar periodos flexibles de vacaciones.
 - **Estados de jornada** (§5.5): `NO INICIADA · EN CURSO · COMPLETA · INCOMPLETA ·
   VACACIONES · DESCANSO`. La app muestra la próxima marcación disponible.
 - Día `DESCANSO` o `VACACIONES`: requeridas = 0, no genera balance negativo;
