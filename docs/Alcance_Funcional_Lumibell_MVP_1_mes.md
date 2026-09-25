@@ -73,7 +73,61 @@ de negocio, seguridad, integración y pruebas reales.
 -   Entrada, salida de refrigerio, regreso de refrigerio y salida.
 -   Persistencia en MySQL.
 
-**Resultado:** marcación funcional de extremo a extremo.
+**Criterios de aceptación — Aplicativo del colaborador:**
+
+-   [ ] **CA-01. Verificación de ubicación:** al pulsar el botón de verificación,
+    el aplicativo obtiene la ubicación actual mediante GPS y la compara con
+    las coordenadas y el radio de tolerancia configurados para la sede. La
+    ubicación se considera válida cuando la distancia es menor o igual al
+    radio permitido.
+-   [ ] **CA-02. Estado del botón de escaneo:** antes de validar la ubicación,
+    el botón de escaneo de QR permanece deshabilitado. Cuando la verificación
+    es correcta, se habilita y cambia de color para indicar que se puede
+    continuar. Si la verificación falla, permanece deshabilitado.
+-   [ ] **CA-03. Tipo y secuencia de marcación:** el colaborador puede elegir
+    el tipo de marcación que corresponde a su horario. El sistema permite
+    entrada, salida de refrigerio, regreso de refrigerio y salida en ese
+    orden; para horarios sin refrigerio, permite entrada y salida. Una
+    selección fuera de secuencia o una marcación duplicada se rechaza con
+    un mensaje explicativo.
+-   [ ] **CA-04. Avisos de ubicación:** si el colaborador está fuera del radio
+    permitido, se muestra un aviso claro y no se permite continuar con el
+    escaneo. Si no es posible obtener la ubicación, se informa el problema
+    y se permite reintentar la verificación.
+-   [ ] **CA-05. QR dinámico y temporal:** el sistema valida que el QR escaneado
+    corresponda a la sede y esté vigente. Un QR vencido, inválido o de otra
+    sede genera un aviso específico y no produce una marcación aceptada.
+-   [ ] **CA-06. Hora oficial:** cada marcación aceptada recibe la fecha y hora
+    del servidor del aplicativo. Cambiar la hora del dispositivo no altera
+    la hora registrada.
+-   [ ] **CA-07. Persistencia e historial:** cada marcación aceptada se guarda
+    en MySQL y aparece en el historial del colaborador con su tipo, fecha y
+    hora oficial, presentada en la zona horaria de Lima. La información
+    permanece disponible al cerrar y volver a abrir el aplicativo.
+
+**Criterios de aceptación — Aplicativo del administrador y supervisor:**
+
+-   [ ] **CA-08. Consulta de marcaciones:** tanto el administrador como el
+    supervisor pueden visualizar las marcaciones de todos los colaboradores
+    activos, identificando al colaborador, el tipo de marcación, la sede y
+    la fecha y hora registradas. La información coincide con la mostrada
+    en el historial del colaborador.
+
+La consulta básica del historial y la visualización administrativa de
+marcaciones se incluyen en esta semana; se complementarán con el cálculo y
+las consultas previstas para las semanas 3 y 4.
+
+**Condición de cumplimiento de la Semana 2:** se considera completada cuando
+todos los criterios CA-01 a CA-08 han sido verificados en el flujo integrado
+del aplicativo, API y MySQL. Debe quedar evidencia del resultado de cada
+criterio, incluyendo una marcación válida de extremo a extremo, los casos
+de rechazo descritos y la consulta con los roles colaborador, administrador
+y supervisor. Las casillas se marcan únicamente después de su verificación;
+los criterios pendientes o fallidos impiden dar la semana por cumplida.
+
+**Resultado esperado:** marcación funcional de extremo a extremo, con
+validación de ubicación y QR, hora oficial persistida e historial consultable
+por los roles correspondientes.
 
 ### Semana 3 --- Cálculo e historial
 

@@ -68,9 +68,9 @@ solo guarda datos crudos + validaciones estructurales.
 - Orden válido con refrigerio: `ENTRADA → SAL_REF → REG_REF → SALIDA`.
   Sin refrigerio: `ENTRADA → SALIDA`.
 - El registro de vacaciones debe seguir la siguiente lógica, inicialmente asignar una cantidad de días por año, luego tener la posibilidad de ir distribuyendo esos días de vacaciones en el año, para lo que debemos de tener la posibilidad de asignar periodos flexibles de vacaciones.
-- **Estados de jornada** (§5.5): `NO INICIADA · EN CURSO · COMPLETA · INCOMPLETA ·
+- Si hay menos marcaciones de las que se esperan o si hay mas de las que esperan , entonces todas las marcaciones del dia pasan al supervisor para revision. Estas marcaciones deben ser resueltas por el supervisor para considerarlas en el calculo de horas.
   VACACIONES · DESCANSO`. La app muestra la próxima marcación disponible.
-- Día `DESCANSO` o `VACACIONES`: requeridas = 0, no genera balance negativo;
+- Día `DESCANSO` o `VACACIONES`: requeridas = 0, no genera balance negativo; por definir detalles para la semana 4
   marcar se rechaza (o registra `DESCANSO`).
 
 ## 6. GPS y QR (piloto)
@@ -80,7 +80,7 @@ solo guarda datos crudos + validaciones estructurales.
   coordenadas → se **acepta** con `fuera_radio = 1` / motivo informativo. No se
   rechaza en el piloto (emuladores e interiores).
 - **QR estático en MVP:** payload `LUMIBELL-SEDE-{id}` debe coincidir con la sede
-  enviada. QR dinámico con token temporal = TODO posterior.
+  enviada.
 
 ## 7. Ejemplos completos
 
