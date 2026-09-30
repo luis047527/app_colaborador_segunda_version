@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../services/api_service.dart';
+import '../../models/seleccion_marcacion.dart';
 import '../../theme/lumibell_theme.dart';
 import '../../widgets/lumibell_ui.dart';
 import '../perfil/perfil_colaborador_screen.dart';
@@ -27,6 +28,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   bool _validating = false;
   Position? _validatedPosition;
   String? _locationError;
+  String? _selectedType;
 
   Future<_AttendanceData> _load() async {
     final employee = Map<String, dynamic>.from(await widget.api.get('/api/empleados/me'));
@@ -39,7 +41,18 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final site = employee['sede_id'] == null ? null : Map<String, dynamic>.from(
       await widget.api.get('/api/sedes/${employee['sede_id']}'),
     );
-    return _AttendanceData(employee: employee, schedule: schedule, site: site);
+    final day = schedule?['dia'] is Map ? Map<String, dynamic>.from(schedule!['dia'] as Map) : null;
+    final date = schedule?['fecha']?.toString();
+    final accepted = <String>[];
+    if (date != null && day != null) {
+      final history = Map<String, dynamic>.from(await widget.api.get('/api/marcaciones/mio?desde=$date&hasta=$date'));
+      final rows = List<Map<String, dynamic>>.from(
+        (history['marcaciones'] as List).map((row) => Map<String, dynamic>.from(row as Map)),
+      )..sort((a, b) => (a['id'] as num).compareTo(b['id'] as num));
+      accepted.addAll(rows.where((row) => row['resultado'] == 'ACEPTADA').map((row) => '${row['tipo']}'));
+    }
+    return _AttendanceData(employee: employee, schedule: schedule, site: site,
+      selection: SeleccionMarcacion(date == null ? null : day, accepted));
   }
 
   Future<void> _validateLocation(Map<String, dynamic> site) async {
@@ -48,6 +61,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       _validating = true;
       _validatedPosition = null;
       _locationError = null;
+      _selectedType = null;
     });
     try {
       final latitude = double.tryParse('${site['latitud']}');
@@ -86,11 +100,27 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
 
   Future<void> _scan() async {
     final position = _validatedPosition;
-    if (position == null || _validating || _registering) return;
+    final selected = _selectedType;
+    if (position == null || selected == null || _validating || _registering) return;
     setState(() => _registering = true);
     try {
+      final previous = await _future;
+      if (!mounted) return;
       final token = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const QrScannerScreen()));
       if (token == null || !mounted) return;
+      // Volver a consultar tras escanear evita usar una secuencia antigua.
+      final current = await _load();
+      if (!mounted) return;
+      setState(() => _future = Future.value(current));
+      if (current.site?['id'] != previous.site?['id'] ||
+          current.site?['estado'] != 'ACTIVA' ||
+          current.site?['latitud'] != previous.site?['latitud'] ||
+          current.site?['longitud'] != previous.site?['longitud'] ||
+          current.site?['radio_permitido_metros'] != previous.site?['radio_permitido_metros'] ||
+          current.schedule?['fecha'] != previous.schedule?['fecha'] ||
+          !current.selection.compatible || current.selection.next != selected) {
+        throw ApiException(current.selection.message ?? 'La jornada cambió. Revisa la próxima marcación y vuelve a validar tu ubicación.');
+      }
       final response = Map<String, dynamic>.from(await widget.api.post('/api/marcaciones', {
         'qr_token': token,
         'latitud': position.latitude,
@@ -110,6 +140,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         setState(() {
           _registering = false;
           _validatedPosition = null;
+          _selectedType = null;
         });
       }
     }
@@ -144,7 +175,9 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final site = data.site;
     final siteActive = site != null && site['estado'] == 'ACTIVA';
     final locationValid = _validatedPosition != null;
-    final canScan = locationValid && !_validating && !_registering;
+    final selection = data.selection;
+    final canSelect = locationValid && !_validating && !_registering;
+    final canScan = canSelect && siteActive && selection.compatible && _selectedType != null && _selectedType == selection.next;
     final day = schedule?['dia'] is Map ? Map<String, dynamic>.from(schedule!['dia'] as Map) : null;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -179,6 +212,32 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           ]),
         ),
         const SizedBox(height: 24),
+        LumibellCard(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Tipo de marcación', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Text(selection.message ?? (locationValid ? 'Selecciona la próxima marcación para continuar.' : 'Primero valida tu ubicación.'),
+            style: TextStyle(color: selection.message != null ? LumibellColors.warning : LumibellColors.navySoft)),
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: selection.types.map((type) => ChoiceChip(
+            label: Text(SeleccionMarcacion.label(type)),
+            selected: _selectedType == type,
+            selectedColor: LumibellColors.peach,
+            onSelected: canSelect && type == selection.next
+              ? (selected) => setState(() => _selectedType = selected ? type : null) : null,
+          )).toList()),
+          if (selection.message != null)
+            TextButton.icon(
+              onPressed: _validating || _registering ? null : () => setState(() {
+                _selectedType = null;
+                _validatedPosition = null;
+                _locationError = null;
+                _future = _load();
+              }),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Actualizar jornada'),
+            ),
+        ])),
+        const SizedBox(height: 24),
         Center(
           child: Semantics(
             button: true,
@@ -190,7 +249,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
               child: Container(
                 width: 190,
                 height: 190,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: canScan ? LumibellColors.copper : LumibellColors.navySoft, border: Border.all(color: canScan ? LumibellColors.peach : LumibellColors.border, width: 14), boxShadow: canScan ? const [BoxShadow(color: Color(0x338D3517), blurRadius: 18, spreadRadius: 4)] : const []),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: locationValid ? LumibellColors.copper : LumibellColors.navySoft, border: Border.all(color: locationValid ? LumibellColors.peach : LumibellColors.border, width: 14), boxShadow: canScan ? const [BoxShadow(color: Color(0x338D3517), blurRadius: 18, spreadRadius: 4)] : const []),
                 child: _registering
                     ? const Center(child: CircularProgressIndicator(color: Colors.white))
                     : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 60), SizedBox(height: 9), Text('ESCANEAR QR', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800))]),
@@ -199,12 +258,12 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        Text(locationValid ? 'Presiona para escanear el código QR de la sede' : 'El escaneo se habilitará al validar tu ubicación', textAlign: TextAlign.center, style: const TextStyle(color: LumibellColors.navySoft)),
+        Text(!locationValid ? 'Primero valida tu ubicación' : selection.message ?? (_selectedType == null ? 'Selecciona el tipo de marcación para habilitar el escaneo' : 'Escanea el QR para registrar: ${SeleccionMarcacion.label(_selectedType!)}'), textAlign: TextAlign.center, style: const TextStyle(color: LumibellColors.navySoft)),
         const SizedBox(height: 22),
         LumibellCard(
           padding: EdgeInsets.zero,
           child: Column(children: [
-            _infoRow(Icons.login_rounded, LumibellColors.peachSoft, LumibellColors.copper, 'Próxima marcación', 'La secuencia se determina al registrar'),
+            _infoRow(Icons.login_rounded, LumibellColors.peachSoft, LumibellColors.copper, 'Próxima marcación', selection.next == null ? 'Sin marcación disponible' : SeleccionMarcacion.label(selection.next!)),
             const Divider(height: 1),
             _infoRow(Icons.calendar_today_rounded, LumibellColors.infoSoft, LumibellColors.info, 'Horario de hoy', day == null ? 'Sin horario asignado' : '${_shortTime(day['entrada'])} - ${_shortTime(day['salida'])}'),
             const Divider(height: 1),
@@ -213,7 +272,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         ),
         if (schedule == null) ...[
           const SizedBox(height: 12),
-          Container(padding: const EdgeInsets.all(13), decoration: BoxDecoration(color: LumibellColors.warningSoft, borderRadius: BorderRadius.circular(13)), child: const Row(children: [Icon(Icons.info_outline_rounded, color: LumibellColors.warning), SizedBox(width: 10), Expanded(child: Text('Aún no tienes un horario asignado. Puedes escanear el QR, pero solicita al administrador configurar tu jornada.', style: TextStyle(color: LumibellColors.navy, fontSize: 12)))])),
+          Container(padding: const EdgeInsets.all(13), decoration: BoxDecoration(color: LumibellColors.warningSoft, borderRadius: BorderRadius.circular(13)), child: const Row(children: [Icon(Icons.info_outline_rounded, color: LumibellColors.warning), SizedBox(width: 10), Expanded(child: Text('No se pudo obtener tu horario. Reintenta la consulta o contacta al administrador antes de marcar.', style: TextStyle(color: LumibellColors.navy, fontSize: 12)))])),
         ],
       ],
     );
@@ -336,7 +395,8 @@ class MarcacionResultadoScreen extends StatelessWidget {
 }
 
 class _AttendanceData {
-  const _AttendanceData({required this.employee, required this.schedule, required this.site});
+  const _AttendanceData({required this.employee, required this.schedule, required this.site, required this.selection});
+  final SeleccionMarcacion selection;
   final Map<String, dynamic> employee;
   final Map<String, dynamic>? schedule;
   final Map<String, dynamic>? site;
