@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -22,6 +24,9 @@ class AsistenciaScreen extends StatefulWidget {
 class _AsistenciaScreenState extends State<AsistenciaScreen> {
   late Future<_AttendanceData> _future = _load();
   bool _registering = false;
+  bool _validating = false;
+  Position? _validatedPosition;
+  String? _locationError;
 
   Future<_AttendanceData> _load() async {
     final employee = Map<String, dynamic>.from(await widget.api.get('/api/empleados/me'));
@@ -31,21 +36,61 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     } on ApiException {
       schedule = null;
     }
-    return _AttendanceData(employee: employee, schedule: schedule);
+    final site = employee['sede_id'] == null ? null : Map<String, dynamic>.from(
+      await widget.api.get('/api/sedes/${employee['sede_id']}'),
+    );
+    return _AttendanceData(employee: employee, schedule: schedule, site: site);
+  }
+
+  Future<void> _validateLocation(Map<String, dynamic> site) async {
+    if (_validating || _registering) return;
+    setState(() {
+      _validating = true;
+      _validatedPosition = null;
+      _locationError = null;
+    });
+    try {
+      final latitude = double.tryParse('${site['latitud']}');
+      final longitude = double.tryParse('${site['longitud']}');
+      final radius = double.tryParse('${site['radio_permitido_metros']}');
+      if (latitude == null || longitude == null || radius == null ||
+          !latitude.isFinite || !longitude.isFinite || !radius.isFinite ||
+          latitude.abs() > 90 || longitude.abs() > 180 || radius <= 0) {
+        throw ApiException('La sede no tiene una ubicación válida configurada. Contacta al administrador.');
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) throw ApiException('El GPS del dispositivo no está habilitado');
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.deniedForever) {
+        throw ApiException('El permiso de ubicación está bloqueado. Habilítalo en la configuración del dispositivo o navegador y vuelve a validar.');
+      }
+      if (permission == LocationPermission.denied) throw ApiException('Debes permitir el acceso a la ubicación GPS. Vuelve a intentarlo.');
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 20)),
+      );
+      final distance = Geolocator.distanceBetween(position.latitude, position.longitude, latitude, longitude);
+      if (!distance.isFinite || distance > radius) {
+        throw ApiException('La ubicación actual no se encuentra dentro del área permitida');
+      }
+      if (mounted) setState(() => _validatedPosition = position);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _locationError = error.message);
+    } on TimeoutException {
+      if (mounted) setState(() => _locationError = 'La ubicación tardó demasiado. Vuelve a intentarlo.');
+    } catch (_) {
+      if (mounted) setState(() => _locationError = 'No se pudo obtener la ubicación. Revisa el GPS y los permisos y vuelve a intentarlo.');
+    } finally {
+      if (mounted) setState(() => _validating = false);
+    }
   }
 
   Future<void> _scan() async {
-    final token = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const QrScannerScreen()));
-    if (token == null || !mounted) return;
+    final position = _validatedPosition;
+    if (position == null || _validating || _registering) return;
     setState(() => _registering = true);
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) throw ApiException('Activa la ubicación GPS del dispositivo.');
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        throw ApiException('Debes permitir el acceso a la ubicación GPS.');
-      }
-      final position = await Geolocator.getCurrentPosition();
+      final token = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const QrScannerScreen()));
+      if (token == null || !mounted) return;
       final response = Map<String, dynamic>.from(await widget.api.post('/api/marcaciones', {
         'qr_token': token,
         'latitud': position.latitude,
@@ -61,7 +106,12 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       if (!mounted) return;
       await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => const MarcacionResultadoScreen.error('No se pudo obtener la ubicación o conectar con el servidor.')));
     } finally {
-      if (mounted) setState(() => _registering = false);
+      if (mounted) {
+        setState(() {
+          _registering = false;
+          _validatedPosition = null;
+        });
+      }
     }
   }
 
@@ -91,6 +141,10 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
 
   Widget _content(_AttendanceData data) {
     final schedule = data.schedule;
+    final site = data.site;
+    final siteActive = site != null && site['estado'] == 'ACTIVA';
+    final locationValid = _validatedPosition != null;
+    final canScan = locationValid && !_validating && !_registering;
     final day = schedule?['dia'] is Map ? Map<String, dynamic>.from(schedule!['dia'] as Map) : null;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -99,17 +153,44 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         const SizedBox(height: 5),
         Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5), decoration: BoxDecoration(color: LumibellColors.peachSoft, borderRadius: BorderRadius.circular(999)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.schedule_rounded, color: LumibellColors.copper, size: 15), SizedBox(width: 5), Text('Hora oficial del dispositivo', style: TextStyle(color: LumibellColors.copper, fontSize: 11, fontWeight: FontWeight.w600))]))),
         const SizedBox(height: 24),
+        LumibellCard(
+          padding: EdgeInsets.zero,
+          child: Column(children: [
+            _infoRow(Icons.storefront_outlined, LumibellColors.peachSoft, LumibellColors.copper, 'Sede asignada', '${site?['nombre'] ?? 'Sin sede asignada'}'),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Semantics(liveRegion: true, child: Text(
+                  site == null ? 'Solicita al administrador que te asigne una sede.'
+                    : !siteActive ? 'Tu sede está inactiva. Contacta al administrador.'
+                    : _validating ? 'Validando tu ubicación…'
+                    : _locationError ?? (locationValid ? 'Ubicación lista para registrar — ${site['nombre']}' : 'Valida tu ubicación para habilitar el escaneo.'),
+                  style: TextStyle(color: _locationError != null || !siteActive ? LumibellColors.danger : locationValid ? LumibellColors.success : LumibellColors.navySoft),
+                )),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: !siteActive || _validating || _registering ? null : () => _validateLocation(site),
+                  icon: _validating ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.my_location_rounded),
+                  label: Text(_validating ? 'Validando ubicación…' : locationValid ? 'Volver a validar ubicación' : 'Validar mi ubicación'),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 24),
         Center(
           child: Semantics(
             button: true,
+            enabled: canScan,
             label: 'Escanear código QR',
             child: InkWell(
-              onTap: _registering ? null : _scan,
+              onTap: canScan ? _scan : null,
               customBorder: const CircleBorder(),
               child: Container(
                 width: 190,
                 height: 190,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: LumibellColors.copper, border: Border.all(color: LumibellColors.peach, width: 14), boxShadow: const [BoxShadow(color: Color(0x338D3517), blurRadius: 18, spreadRadius: 4)]),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: canScan ? LumibellColors.copper : LumibellColors.navySoft, border: Border.all(color: canScan ? LumibellColors.peach : LumibellColors.border, width: 14), boxShadow: canScan ? const [BoxShadow(color: Color(0x338D3517), blurRadius: 18, spreadRadius: 4)] : const []),
                 child: _registering
                     ? const Center(child: CircularProgressIndicator(color: Colors.white))
                     : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 60), SizedBox(height: 9), Text('ESCANEAR QR', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800))]),
@@ -118,7 +199,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        const Text('Presiona para escanear el código QR de la sede', textAlign: TextAlign.center, style: TextStyle(color: LumibellColors.navySoft)),
+        Text(locationValid ? 'Presiona para escanear el código QR de la sede' : 'El escaneo se habilitará al validar tu ubicación', textAlign: TextAlign.center, style: const TextStyle(color: LumibellColors.navySoft)),
         const SizedBox(height: 22),
         LumibellCard(
           padding: EdgeInsets.zero,
@@ -127,7 +208,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
             const Divider(height: 1),
             _infoRow(Icons.calendar_today_rounded, LumibellColors.infoSoft, LumibellColors.info, 'Horario de hoy', day == null ? 'Sin horario asignado' : '${_shortTime(day['entrada'])} - ${_shortTime(day['salida'])}'),
             const Divider(height: 1),
-            _infoRow(Icons.location_on_rounded, LumibellColors.successSoft, LumibellColors.success, 'GPS', 'Ubicación lista para validar'),
+            _infoRow(Icons.location_on_rounded, locationValid ? LumibellColors.successSoft : LumibellColors.warningSoft, locationValid ? LumibellColors.success : LumibellColors.warning, 'GPS', _validating ? 'Validando ubicación' : locationValid ? 'Ubicación validada' : _locationError != null ? 'Ubicación no validada' : 'Pendiente de validación'),
           ]),
         ),
         if (schedule == null) ...[
@@ -255,7 +336,8 @@ class MarcacionResultadoScreen extends StatelessWidget {
 }
 
 class _AttendanceData {
-  const _AttendanceData({required this.employee, required this.schedule});
+  const _AttendanceData({required this.employee, required this.schedule, required this.site});
   final Map<String, dynamic> employee;
   final Map<String, dynamic>? schedule;
+  final Map<String, dynamic>? site;
 }
