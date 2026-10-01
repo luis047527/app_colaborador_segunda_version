@@ -103,3 +103,16 @@ QR dinámico, modo offline, cálculo de tardanza/balance (Semana 3), vacaciones 
 6. Transversal.
    - `server/tests/docs.test.js`: agregar `ESPERADAS` (`/api/hora`, `/me/sede`, `/sedes/{id}/qr`) y quitar `/qr/sede/:sedeId` dinámico.
    - Verificar: `npm run db:reset`, `docker exec node_server npm test`, `curl /api-docs.json`.
+
+## Actividades Flutter (follow-up, backend Semana 2 completo 2026-10-01)
+
+1. `qr_sede_screen.dart` — migrar de QR dinámico a estático (roto hoy: muestra QR que da `400`).
+   - Cambiar `POST /api/marcaciones/qr/sede/:id` (legacy deprecated) por `POST /api/sedes/:id/qr` (solo `ADMINISTRADOR`) → `{ sede_id, qr_valor, qr_png_url }`.
+   - Renderizar `QrImageView(data: qr_valor)` (mismo `qr_flutter` ya importado); reemplazar texto "Vence / cada 2 minutos" por "QR estático — válido hasta regenerarlo. Imprimible." Pedir confirmación antes de rotar (`200` invalida impresos anteriores).
+   - Botón descargar con `qr_png_url` (`GET /api/sedes/:id/qr?formato=png`): simple con `url_launcher`, o completa con `http` + `share_plus`/`printing` (nueva dependencia).
+   - Tras migrar y verificar, remover backend legacy `POST /marcaciones/qr/sede/:sedeId` + `@openapi deprecated` + expectativa en `docs.test.js` (criterio `AGENTS.md §4`: cero hits en `lib/`).
+2. `asistencia_screen.dart:98-100` — hora del servidor (actividad 1).
+   - Reemplazar `DateTime.now()` + "Hora oficial del dispositivo" por `GET /api/hora` al abrir + `Timer.periodic(60s)` (cancelar en `dispose`), formato `HH:MM`; icono "i" con "Hora oficial del servidor (Lima). No depende de la hora de tu celular."
+3. `asistencia_screen.dart` — pre-validación GPS (actividad 2).
+   - Botón `Validar mi ubicación`: `GET /api/empleados/me/sede` + GPS una vez + haversine local; mensajes según plan §2; solo entonces habilita `Escanear QR`. Mantener body `{ qr_token, latitud, longitud }` y respuesta `{ marcacion, siguiente_marcacion }` sin cambios.
+4. Verificar: `flutter analyze` sin errores; flujo extremo a extremo (GPS ok + QR nuevo → `201`; QR viejo → `400`; fuera radio → `403`).
