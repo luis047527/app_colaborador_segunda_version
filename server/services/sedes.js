@@ -1,4 +1,5 @@
 // Lógica pura de sedes (sin HTTP; DB como interfaz vía models).
+const crypto = require('crypto');
 const Sedes = require('../models/sedes');
 const ESTADOS_VALIDOS = ['ACTIVA', 'INACTIVA'];
 
@@ -24,7 +25,21 @@ function validarGeo({ latitud, longitud, radio_permitido_metros }) {
   return null;
 }
 
-module.exports = { ESTADOS_VALIDOS, validarGeo, crearSede, actualizarSede };
+module.exports = { ESTADOS_VALIDOS, validarGeo, crearSede, actualizarSede, generarQr };
+
+async function generarQr(db, sedeId) {
+  const sede = await Sedes.buscarFila(db, sedeId);
+  if (!sede) {
+    return { status: 404, error: 'Sede no encontrada' };
+  }
+  const primera = !sede.qr_valor;
+  const qr_valor = `LUMIBELL-SEDE-${sede.id}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+  await Sedes.actualizar(db, sede.id, { qr_valor });
+  return {
+    status: primera ? 201 : 200,
+    data: { sede_id: sede.id, qr_valor, qr_png_url: `/api/sedes/${sede.id}/qr?formato=png` },
+  };
+}
 
 async function crearSede(db, { nombre, direccion, latitud, longitud, radio_permitido_metros, estado }) {
   const id = await Sedes.insertar(db, {

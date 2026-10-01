@@ -3,7 +3,7 @@ const pool = require('../db');
 const verificarToken = require('../middleware/auth');
 const { requerirRol } = require('../middleware/roles');
 const Sedes = require('../models/sedes');
-const { ESTADOS_VALIDOS, validarGeo, crearSede, actualizarSede } = require('../services/sedes');
+const { ESTADOS_VALIDOS, validarGeo, crearSede, actualizarSede, generarQr } = require('../services/sedes');
 
 const router = express.Router();
 
@@ -152,6 +152,55 @@ router.put('/:id', requerirRol('ADMINISTRADOR'), async (req, res) => {
     const r = await actualizarSede(pool, req.params.id, cambios);
     if (r.error) return res.status(r.status).json({ error: r.error });
     res.json(r.data);
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+/**
+ * @openapi
+ * /api/sedes/{id}/qr:
+ *   post:
+ *     summary: Generar o rotar QR estático de la sede
+ *     description: Crea `sedes.qr_valor` la primera vez (201) o lo sobrescribe al rotar (200, invalida impresiones anteriores).
+ *     tags: [Sedes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       201:
+ *         description: QR generado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [sede_id, qr_valor, qr_png_url]
+ *               properties:
+ *                 sede_id: { type: integer }
+ *                 qr_valor: { type: string, example: 'LUMIBELL-SEDE-1-A1B2C3D4' }
+ *                 qr_png_url: { type: string, example: '/api/sedes/1/qr?formato=png' }
+ *       200:
+ *         description: QR rotado (misma forma que 201)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [sede_id, qr_valor, qr_png_url]
+ *               properties:
+ *                 sede_id: { type: integer }
+ *                 qr_valor: { type: string }
+ *                 qr_png_url: { type: string }
+ *       401: { description: Token no proporcionado o inválido }
+ *       403: { description: Rol no autorizado (solo ADMINISTRADOR) }
+ *       404: { description: Sede no encontrada }
+ */
+router.post('/:id/qr', requerirRol('ADMINISTRADOR'), async (req, res) => {
+  try {
+    const r = await generarQr(pool, req.params.id);
+    if (r.error) return res.status(r.status).json({ error: r.error });
+    res.status(r.status).json(r.data);
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
