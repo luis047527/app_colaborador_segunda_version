@@ -7,6 +7,8 @@ const { installPool, bootApp, token } = require('./helpers');
 const sedesPorId = {
   1: { id: 1, qr_valor: null, estado: 'ACTIVA' },
   2: { id: 2, qr_valor: 'LUMIBELL-SEDE-2-VIEJO123', estado: 'ACTIVA' },
+  3: { id: 3, qr_valor: 'LUMIBELL-SEDE-3-QQQQ9999', estado: 'ACTIVA' },
+  4: { id: 4, qr_valor: null, estado: 'ACTIVA' },
 };
 let ultimoUpdate = null;
 
@@ -76,5 +78,50 @@ describe('POST /api/sedes/:id/qr', () => {
     assert.equal(status, 200);
     assert.match(body.qr_valor, /^LUMIBELL-SEDE-2-[0-9A-F]{8}$/);
     assert.notEqual(body.qr_valor, antes);
+  });
+});
+
+const getQr = async (id, payload, { query = '', ...headers } = {}) => {
+  const h = { ...headers };
+  if (payload !== false) h.Authorization = `Bearer ${token(payload)}`;
+  const res = await fetch(`${base}/api/sedes/${id}/qr${query}`, { headers: h });
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('image/png')) {
+    return { status: res.status, contentType, bytes: Buffer.from(await res.arrayBuffer()) };
+  }
+  return { status: res.status, contentType, body: await res.json().catch(() => null) };
+};
+
+describe('GET /api/sedes/:id/qr', () => {
+  it('401 sin token y 403 colaborador', async () => {
+    assert.equal((await getQr(3, false)).status, 401);
+    assert.equal((await getQr(3, { sub: 5, rol: 'COLABORADOR' })).status, 403);
+  });
+
+  it('404 inexistente y sin QR generado', async () => {
+    assert.equal((await getQr(999, ADMIN)).status, 404);
+    const sinQr = await getQr(4, ADMIN);
+    assert.equal(sinQr.status, 404);
+    assert.match(sinQr.body.error, /sin QR/);
+  });
+
+  it('200 JSON con las 3 claves (admin y supervisor)', async () => {
+    for (const payload of [ADMIN, { sub: 2, rol: 'SUPERVISOR' }]) {
+      const { status, body } = await getQr(3, payload);
+      assert.equal(status, 200);
+      assert.equal(body.sede_id, 3);
+      assert.equal(body.qr_valor, 'LUMIBELL-SEDE-3-QQQQ9999');
+      assert.equal(body.qr_png_url, '/api/sedes/3/qr?formato=png');
+    }
+  });
+
+  it('200 PNG con ?formato=png y con Accept: image/png', async () => {
+    for (const headers of [{ query: '?formato=png' }, { Accept: 'image/png' }]) {
+      const r = await getQr(3, ADMIN, headers);
+      assert.equal(r.status, 200);
+      assert.match(r.contentType, /image\/png/);
+      assert.deepEqual([...r.bytes.subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
+      assert.ok(r.bytes.length > 100);
+    }
   });
 });

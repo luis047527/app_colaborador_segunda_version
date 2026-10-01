@@ -11,6 +11,17 @@ router.use(verificarToken);
 
 const EDITABLES = ['nombre', 'direccion', 'latitud', 'longitud', 'radio_permitido_metros', 'estado'];
 
+// El qr_valor es secreto: solo ADMIN/SUPERVISOR lo ven (con su URL de descarga).
+// COLABORADOR recibe la sede sin qr_valor (el valor le llega por cámara).
+function sanearSede(fila, rol) {
+  if (!fila) return fila;
+  const { qr_valor, ...resto } = fila;
+  if (rol === 'ADMINISTRADOR' || rol === 'SUPERVISOR') {
+    return { ...resto, qr_valor, qr_png_url: `/api/sedes/${fila.id}/qr?formato=png` };
+  }
+  return resto;
+}
+
 /**
  * @openapi
  * /api/sedes/:
@@ -42,9 +53,9 @@ const EDITABLES = ['nombre', 'direccion', 'latitud', 'longitud', 'radio_permitid
  *       400:
  *         description: Campos faltantes o geo/estado inválido
  */
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
   try {
-    res.json(await Sedes.listar(pool));
+    res.json((await Sedes.listar(pool)).map((fila) => sanearSede(fila, req.usuario.rol)));
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -109,7 +120,7 @@ router.get('/:id', async (req, res) => {
     if (!fila) {
       return res.status(404).json({ error: 'Sede no encontrada' });
     }
-    res.json(fila);
+    res.json(sanearSede(fila, req.usuario.rol));
   } catch (err) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -196,6 +207,63 @@ router.put('/:id', requerirRol('ADMINISTRADOR'), async (req, res) => {
  *       403: { description: Rol no autorizado (solo ADMINISTRADOR) }
  *       404: { description: Sede no encontrada }
  */
+/**
+ * @openapi
+ * /api/sedes/{id}/qr:
+ *   get:
+ *     summary: Consultar o descargar QR estático de la sede
+ *     description: "Sin query retorna JSON con el valor; con ?formato=png (o Accept image/png) retorna el PNG inline para <img> o descarga."
+ *     tags: [Sedes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: formato
+ *         schema: { type: string, enum: [png] }
+ *         description: Con `png` responde image/png en vez de JSON
+ *     responses:
+ *       200:
+ *         description: JSON o PNG según formato pedido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [sede_id, qr_valor, qr_png_url]
+ *               properties:
+ *                 sede_id: { type: integer }
+ *                 qr_valor: { type: string }
+ *                 qr_png_url: { type: string }
+ *           image/png:
+ *             schema: { type: string, format: binary }
+ *       401: { description: Token no proporcionado o inválido }
+ *       403: { description: Rol no autorizado (solo ADMINISTRADOR/SUPERVISOR) }
+ *       404: { description: Sede no encontrada o sin QR generado (usar POST .../qr) }
+ */
+router.get('/:id/qr', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (req, res) => {
+  try {
+    const sede = await Sedes.buscarFila(pool, req.params.id);
+    if (!sede) return res.status(404).json({ error: 'Sede no encontrada' });
+    if (!sede.qr_valor) {
+      return res.status(404).json({ error: 'Sede sin QR generado, use POST /api/sedes/:id/qr' });
+    }
+    const quierePng = req.query.formato === 'png' || (req.get('Accept') || '').includes('image/png');
+    if (!quierePng) {
+      return res.json({
+        sede_id: sede.id,
+        qr_valor: sede.qr_valor,
+        qr_png_url: `/api/sedes/${sede.id}/qr?formato=png`,
+      });
+    }
+    const QRCode = require('qrcode');
+    const png = await QRCode.toBuffer(sede.qr_valor, { type: 'png', width: 512, margin: 2 });
+    res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'no-store' }).send(png);
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 router.post('/:id/qr', requerirRol('ADMINISTRADOR'), async (req, res) => {
   try {
     const r = await generarQr(pool, req.params.id);
