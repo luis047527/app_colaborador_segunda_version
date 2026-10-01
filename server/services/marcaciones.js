@@ -15,6 +15,9 @@ function distanciaMetros(lat1, lon1, lat2, lon2) {
 
 function siguienteTipo(tipos) { return TIPOS[tipos.length] || null; }
 
+// DEPRECATED (Semana 2, QR estático): el QR dinámico temporal ya no valida
+// marcaciones. Se conserva solo para POST /marcaciones/qr/sede/:sedeId
+// (deprecated) hasta migrar la pantalla admin a sedes/:id/qr.
 function crearQr(sedeId, secreto) {
   const expiraEn = Date.now() + 2 * 60 * 1000;
   const nonce = crypto.randomBytes(12).toString('hex');
@@ -23,6 +26,7 @@ function crearQr(sedeId, secreto) {
   return { token: Buffer.from(`${payload}.${firma}`).toString('base64url'), expira_en: new Date(expiraEn).toISOString() };
 }
 
+// DEPRECATED (Semana 2, QR estático): ver comentario en crearQr.
 function validarQr(token, sedeId, secreto) {
   try {
     const [tokenSede, expiraEn, nonce, firma] = Buffer.from(token, 'base64url').toString().split('.');
@@ -37,20 +41,22 @@ async function registrar(db, usuarioId, data, ahora = new Date()) {
   const empleado = await Marcaciones.buscarEmpleadoPorUsuario(db, usuarioId);
   if (!empleado || empleado.estado !== 'ACTIVO') return { status: 403, error: 'Colaborador no activo' };
   if (!empleado.sede_id) return { status: 400, error: 'Colaborador sin sede asignada' };
-  if (!data.qr_token || !validarQr(data.qr_token, empleado.sede_id, process.env.QR_SECRET || 'qr-dev-secret')) {
-    return { status: 400, error: 'QR inválido o vencido' };
+  const sede = await Sedes.buscarFila(db, empleado.sede_id);
+  if (!sede || sede.estado !== 'ACTIVA') return { status: 400, error: 'Sede no disponible' };
+  if (!sede.qr_valor) return { status: 400, error: 'Sede sin QR generado' };
+  if (!data.qr_token || data.qr_token !== sede.qr_valor) {
+    return { status: 400, error: 'QR inválido' };
   }
   if (!Number.isFinite(data.latitud) || !Number.isFinite(data.longitud)) return { status: 400, error: 'Ubicación GPS inválida' };
+  const distancia = distanciaMetros(Number(data.latitud), Number(data.longitud), Number(sede.latitud), Number(sede.longitud));
+  if (distancia > Number(sede.radio_permitido_metros)) return { status: 403, error: 'Fuera del radio permitido' };
   const fecha = fechaLimaYMD(ahora);
   const tipos = await Marcaciones.tiposAceptadosHoy(db, empleado.id, fecha);
   const tipo = siguienteTipo(tipos);
   if (!tipo) return { status: 409, error: 'La jornada ya está completa' };
-  const sede = await Sedes.buscarFila(db, empleado.sede_id);
-  if (!sede || sede.estado !== 'ACTIVA') return { status: 400, error: 'Sede no disponible' };
-  const distancia = distanciaMetros(Number(data.latitud), Number(data.longitud), Number(sede.latitud), Number(sede.longitud));
   const fila = await Marcaciones.insertar(db, {
     empleadoId: empleado.id, fecha, tipo, sedeId: sede.id, latitud: data.latitud, longitud: data.longitud,
-    distancia, fueraRadio: distancia > Number(sede.radio_permitido_metros) ? 1 : 0,
+    distancia, fueraRadio: 0,
     resultado: 'ACEPTADA', motivo: null,
   });
   return { status: 201, data: { marcacion: fila, siguiente_marcacion: siguienteTipo([...tipos, tipo]) } };
