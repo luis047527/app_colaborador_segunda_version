@@ -29,6 +29,7 @@ const ESPERADAS = {
   '/api/sedes/{id}': ['get', 'put', 'delete'],
   '/api/horarios/': ['get', 'post'],
   '/api/horarios/{id}': ['get'],
+  '/api/hora/': ['get'],
 };
 
 describe('OpenAPI', () => {

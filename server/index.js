@@ -6,6 +6,7 @@ const empleadoRoutes = require('./routes/empleados');
 const horarioRoutes = require('./routes/horarios');
 const sedeRoutes = require('./routes/sedes');
 const marcacionRoutes = require('./routes/marcaciones');
+const horaRoutes = require('./routes/hora');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');
 
@@ -70,6 +71,7 @@ app.use('/api/empleados', empleadoRoutes);
 app.use('/api/horarios', horarioRoutes);
 app.use('/api/sedes', sedeRoutes);
 app.use('/api/marcaciones', marcacionRoutes);
+app.use('/api/hora', horaRoutes);
 
 // Documentación OpenAPI: UI + JSON crudo (para codegen).
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
