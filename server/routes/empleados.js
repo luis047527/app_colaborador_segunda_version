@@ -3,6 +3,7 @@ const pool = require('../db');
 const verificarToken = require('../middleware/auth');
 const { requerirRol } = require('../middleware/roles');
 const Horarios = require('../models/horarios');
+const Sedes = require('../models/sedes');
 const {
   validarCreate,
   validarUpdate,
@@ -141,6 +142,54 @@ router.get('/me', handleGetMe);
  *       404: { description: Usuario sin perfil, sin horario asignado u horario no encontrado }
  */
 router.get('/me/horario', handleGetMeHorario);
+
+async function handleGetMeSede(req, res) {
+  try {
+    const [emps] = await pool.query(
+      'SELECT id, sede_id, estado FROM empleados WHERE usuario_id = ?',
+      [req.usuario.sub]
+    );
+    if (!emps[0]) return res.status(404).json({ error: 'Usuario sin perfil de colaborador' });
+    if (emps[0].estado !== 'ACTIVO') return res.status(403).json({ error: 'Colaborador no activo' });
+    if (!emps[0].sede_id) return res.status(404).json({ error: 'Colaborador sin sede asignada' });
+    const sede = await Sedes.buscarFila(pool, emps[0].sede_id);
+    if (!sede || sede.estado !== 'ACTIVA') return res.status(404).json({ error: 'Sede no disponible' });
+    res.json({
+      id: sede.id,
+      nombre: sede.nombre,
+      latitud: Number(sede.latitud),
+      longitud: Number(sede.longitud),
+      radio_permitido_metros: Number(sede.radio_permitido_metros),
+    });
+  } catch (_) { res.status(500).json({ error: 'Error interno del servidor' }); }
+}
+
+/**
+ * @openapi
+ * /api/empleados/me/sede:
+ *   get:
+ *     summary: Sede asignada al usuario autenticado (sin secreto QR)
+ *     description: Retorna coords y radio para pre-validación GPS en cliente. Nunca expone `qr_valor`.
+ *     tags: [Empleados]
+ *     responses:
+ *       200:
+ *         description: Sede asignada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [id, nombre, latitud, longitud, radio_permitido_metros]
+ *               properties:
+ *                 id: { type: integer }
+ *                 nombre: { type: string }
+ *                 latitud: { type: number }
+ *                 longitud: { type: number }
+ *                 radio_permitido_metros: { type: number }
+ *       401: { description: Token no proporcionado o inválido }
+ *       403: { description: Colaborador no activo }
+ *       404: { description: Sin perfil, sin sede asignada o sede no disponible }
+ */
+router.get('/me/sede', handleGetMeSede);
 
 // Horario del día para el colaborador (criterio de éxito #5 MVP).
 // COLABORADOR solo ve el suyo; ADMIN/SUPERVISOR cualquiera.

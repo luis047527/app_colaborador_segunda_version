@@ -23,6 +23,7 @@ const ESPERADAS = {
   '/api/empleados/': ['get', 'post'],
   '/api/empleados/me': ['get'],
   '/api/empleados/me/horario': ['get'],
+  '/api/empleados/me/sede': ['get'],
   '/api/empleados/{id}': ['put'],
   '/api/empleados/{id}/horario': ['get'],
   '/api/sedes/': ['get', 'post'],
