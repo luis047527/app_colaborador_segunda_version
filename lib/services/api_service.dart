@@ -1,11 +1,13 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 
 class ApiException implements Exception {
-  ApiException(this.message);
+  ApiException(this.message, {this.statusCode});
 
   final String message;
+  final int? statusCode;
 
   @override
   String toString() => message;
@@ -18,11 +20,22 @@ class ApiService {
   Future<dynamic> post(String path, Map<String, dynamic> body) async => _request(http.post(Uri.parse('${AppConfig.apiBaseUrl}$path'), headers: _headers, body: jsonEncode(body)));
   Future<dynamic> put(String path, Map<String, dynamic> body) async => _request(http.put(Uri.parse('${AppConfig.apiBaseUrl}$path'), headers: _headers, body: jsonEncode(body)));
   Future<dynamic> delete(String path) async => _request(http.delete(Uri.parse('${AppConfig.apiBaseUrl}$path'), headers: _headers));
+  Future<Uint8List> getPng(String path) async {
+    final response = await http.get(Uri.parse('${AppConfig.apiBaseUrl}$path'), headers: {..._headers, 'Accept': 'image/png'});
+    if (response.statusCode < 200 || response.statusCode > 299) await _request(Future.value(response));
+    final bytes = response.bodyBytes;
+    const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+    if (!(response.headers['content-type'] ?? '').startsWith('image/png') || bytes.length < signature.length ||
+        !Iterable<int>.generate(signature.length).every((i) => bytes[i] == signature[i])) {
+      throw ApiException('El servidor no devolvió una imagen PNG válida.');
+    }
+    return bytes;
+  }
   Future<dynamic> _request(Future<http.Response> future) async {
     final response = await future;
     dynamic data;
     try { data = response.body.isEmpty ? null : jsonDecode(response.body); } catch (_) { data = null; }
-    if (response.statusCode < 200 || response.statusCode > 299) throw ApiException(data is Map ? (data['error'] ?? 'Error de servidor').toString() : 'Error de servidor');
+    if (response.statusCode < 200 || response.statusCode > 299) throw ApiException(data is Map ? (data['error'] ?? 'Error de servidor').toString() : 'Error de servidor', statusCode: response.statusCode);
     return data;
   }
 }

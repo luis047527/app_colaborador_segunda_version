@@ -64,7 +64,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               LumibellSectionTitle(title: 'Actividad reciente', action: 'Ver más', onAction: () => _soon('Actividad reciente')),
               const SizedBox(height: 10), const _Activity(icon: Icons.person_add_alt_1_rounded, color: LumibellColors.success, background: LumibellColors.successSoft, title: 'Nuevo colaborador registrado', subtitle: 'Consulta la lista para ver los cambios'),
               const SizedBox(height: 9), const _Activity(icon: Icons.calendar_month_rounded, color: LumibellColors.info, background: LumibellColors.infoSoft, title: 'Horarios del equipo', subtitle: 'Crea y asigna jornadas personalizadas'),
-              const SizedBox(height: 9), const _Activity(icon: Icons.qr_code_rounded, color: LumibellColors.copper, background: LumibellColors.peachSoft, title: 'Marcación por sede', subtitle: 'Genera un QR temporal para tu equipo'),
+              const SizedBox(height: 9), const _Activity(icon: Icons.qr_code_rounded, color: LumibellColors.copper, background: LumibellColors.peachSoft, title: 'Marcación por sede', subtitle: 'Consulta el QR estático de tu sede'),
             ]),
           ],
         ),
