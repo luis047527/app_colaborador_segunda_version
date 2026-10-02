@@ -218,13 +218,34 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           Text(selection.message ?? (locationValid ? 'Selecciona la próxima marcación para continuar.' : 'Primero valida tu ubicación.'),
             style: TextStyle(color: selection.message != null ? LumibellColors.warning : LumibellColors.navySoft)),
           const SizedBox(height: 10),
-          Wrap(spacing: 8, runSpacing: 8, children: selection.types.map((type) => ChoiceChip(
-            label: Text(SeleccionMarcacion.label(type)),
-            selected: _selectedType == type,
-            selectedColor: LumibellColors.peach,
-            onSelected: canSelect && type == selection.next
-              ? (selected) => setState(() => _selectedType = selected ? type : null) : null,
-          )).toList()),
+          InputDecorator(
+            decoration: InputDecoration(
+              enabled: canSelect && selection.next != null,
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: LumibellColors.border)),
+            ),
+            child: DropdownButtonHideUnderline(child: DropdownButton<String>(
+              value: _selectedType,
+              isExpanded: true,
+              hint: const Text('Selecciona una marcación'),
+              disabledHint: Text(_selectedType == null ? 'Selecciona una marcación' : SeleccionMarcacion.label(_selectedType!)),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded),
+              iconEnabledColor: LumibellColors.copper,
+              dropdownColor: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              items: selection.types.map((type) => DropdownMenuItem<String>(
+                value: type,
+                enabled: type == selection.next,
+                child: Text(SeleccionMarcacion.label(type), style: TextStyle(
+                  color: type == selection.next ? LumibellColors.navy : Theme.of(context).disabledColor,
+                )),
+              )).toList(),
+              onChanged: canSelect && selection.next != null
+                ? (type) => setState(() => _selectedType = type) : null,
+            )),
+          ),
           if (selection.message != null)
             TextButton.icon(
               onPressed: _validating || _registering ? null : () => setState(() {
