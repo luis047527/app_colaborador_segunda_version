@@ -11,6 +11,7 @@ class _Api extends ApiService {
   @override
   Future<dynamic> get(String path) async {
     paths.add(path);
+    if (path == '/api/hora/') return {'utc': '2026-10-01T15:34:00.000Z', 'lima': '2026-10-01 10:34', 'lima_hora': '10:34', 'lima_fecha': '2026-10-01'};
     if (path == '/api/empleados/me') return {'id': 3, 'sede_id': 1};
     if (path == '/api/empleados/3/horario') {
       return {'fecha': '2026-10-01', 'dia': {'entrada': '09:00', 'salida': '14:00', 'es_descanso': 0}};
@@ -27,7 +28,8 @@ class _Api extends ApiService {
 void main() {
   Future<void> showScreen(WidgetTester tester, _Api api) async {
     await tester.pumpWidget(MaterialApp(home: AsistenciaScreen(api: api, usuarioId: 3, onLogout: () {})));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
   }
 
   testWidgets('sede sin estado habilita validar GPS pero mantiene escaneo bloqueado', (tester) async {
@@ -39,6 +41,7 @@ void main() {
     final dropdown = tester.widget<DropdownButton<String>>(find.byType(DropdownButton<String>));
     expect(dropdown.onChanged, isNull);
     expect(api.paths, contains('/api/empleados/me/sede'));
+    expect(api.paths, contains('/api/hora/'));
     expect(api.paths.any((path) => path.startsWith('/api/sedes/')), isFalse);
   });
 
@@ -52,7 +55,8 @@ void main() {
       final retry = find.text('Reintentar consulta de sede');
       await tester.ensureVisible(retry);
       await tester.tap(retry);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump();
       expect(find.text('Sede Lima'), findsOneWidget);
       expect(tester.widget<FilledButton>(find.byWidgetPredicate((widget) => widget is FilledButton)).onPressed, isNotNull);
     });

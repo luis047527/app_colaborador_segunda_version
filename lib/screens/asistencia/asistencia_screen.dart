@@ -24,11 +24,43 @@ class AsistenciaScreen extends StatefulWidget {
 
 class _AsistenciaScreenState extends State<AsistenciaScreen> {
   late Future<_AttendanceData> _future = _load();
+  Timer? _clockTimer;
+  _OfficialClock? _officialClock;
+  String? _clockError;
   bool _registering = false;
   bool _validating = false;
   Position? _validatedPosition;
   String? _locationError;
   String? _selectedType;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncOfficialClock();
+    _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) => _syncOfficialClock(silent: true));
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _syncOfficialClock({bool silent = false}) async {
+    try {
+      final data = Map<String, dynamic>.from(await widget.api.get('/api/hora/'));
+      if (!mounted) return;
+      setState(() {
+        _officialClock = _OfficialClock.fromApi(data);
+        _clockError = null;
+      });
+    } catch (_) {
+      if (!mounted || silent) return;
+      setState(() => _clockError = 'No se pudo sincronizar la hora oficial.');
+    }
+  }
+
+  DateTime get _displayDateTime => _officialClock?.now() ?? DateTime.now();
 
   Future<_AttendanceData> _load() async {
     final employee = Map<String, dynamic>.from(await widget.api.get('/api/empleados/me'));
@@ -168,7 +200,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         preferredSize: const Size.fromHeight(28),
         child: Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Text(_fullDate(DateTime.now()), style: Theme.of(context).textTheme.bodyMedium),
+          child: Text(_fullDate(_displayDateTime), style: Theme.of(context).textTheme.bodyMedium),
         ),
       ),
     ),
@@ -192,12 +224,17 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final canSelect = locationValid && !_validating && !_registering;
     final canScan = canSelect && selection.compatible && _selectedType != null && _selectedType == selection.next;
     final day = schedule?['dia'] is Map ? Map<String, dynamic>.from(schedule!['dia'] as Map) : null;
+    final officialTime = _displayDateTime;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       children: [
-        Text(_clock(DateTime.now()), textAlign: TextAlign.center, style: const TextStyle(color: LumibellColors.navy, fontSize: 34, fontWeight: FontWeight.w800)),
+        Text(_clock(officialTime), textAlign: TextAlign.center, style: const TextStyle(color: LumibellColors.navy, fontSize: 34, fontWeight: FontWeight.w800)),
         const SizedBox(height: 5),
-        Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5), decoration: BoxDecoration(color: LumibellColors.peachSoft, borderRadius: BorderRadius.circular(999)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.schedule_rounded, color: LumibellColors.copper, size: 15), SizedBox(width: 5), Text('Hora oficial del dispositivo', style: TextStyle(color: LumibellColors.copper, fontSize: 11, fontWeight: FontWeight.w600))]))),
+        Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5), decoration: BoxDecoration(color: LumibellColors.peachSoft, borderRadius: BorderRadius.circular(999)), child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.schedule_rounded, color: LumibellColors.copper, size: 15),
+          const SizedBox(width: 5),
+          Text(_clockError ?? (_officialClock == null ? 'Sincronizando hora oficial' : 'Hora oficial del servidor'), style: const TextStyle(color: LumibellColors.copper, fontSize: 11, fontWeight: FontWeight.w600)),
+        ]))),
         const SizedBox(height: 24),
         LumibellCard(
           padding: EdgeInsets.zero,
@@ -356,6 +393,22 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   }
 }
 
+class _OfficialClock {
+  const _OfficialClock({required this.lima, required this.fetchedAt});
+  final DateTime lima;
+  final DateTime fetchedAt;
+
+  factory _OfficialClock.fromApi(Map<String, dynamic> data) {
+    final date = '${data['lima_fecha'] ?? ''}';
+    final hour = '${data['lima_hora'] ?? ''}';
+    final parsed = DateTime.tryParse('${date}T$hour:00');
+    if (parsed == null) throw const FormatException('Hora oficial invalida');
+    return _OfficialClock(lima: parsed, fetchedAt: DateTime.now());
+  }
+
+  DateTime now() => lima.add(DateTime.now().difference(fetchedAt));
+}
+
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
   @override
@@ -393,6 +446,7 @@ class MarcacionResultadoScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final mark = data?['marcacion'] is Map ? Map<String, dynamic>.from(data!['marcacion'] as Map) : const <String, dynamic>{};
     final type = _typeLabel('${mark['tipo'] ?? ''}');
+    final registeredAt = _MarcacionResultadoTime._registeredAt(mark);
     return Scaffold(
       appBar: AppBar(title: Text(success ? 'Marcación registrada' : 'Error en la marcación')),
       body: Padding(
@@ -408,9 +462,9 @@ class MarcacionResultadoScreen extends StatelessWidget {
             LumibellCard(child: Column(children: [
               _resultRow(context, Icons.login_rounded, 'Tipo de marcación', type),
               const Divider(height: 24),
-              _resultRow(context, Icons.schedule_rounded, 'Hora registrada', TimeOfDay.now().format(context)),
+              _resultRow(context, Icons.schedule_rounded, 'Hora registrada', registeredAt.$1),
               const Divider(height: 24),
-              _resultRow(context, Icons.calendar_month_rounded, 'Fecha', '${mark['fecha'] ?? ''}'),
+              _resultRow(context, Icons.calendar_month_rounded, 'Fecha', registeredAt.$2),
               const Divider(height: 24),
               _resultRow(context, Icons.location_on_rounded, 'GPS', mark['fuera_radio'] == 1 ? 'Fuera del radio permitido' : 'Ubicación validada'),
             ]))
@@ -436,6 +490,17 @@ class MarcacionResultadoScreen extends StatelessWidget {
     'SALIDA' => 'salida',
     _ => 'marcación',
   };
+}
+
+extension _MarcacionResultadoTime on MarcacionResultadoScreen {
+  static (String, String) _registeredAt(Map<String, dynamic> mark) {
+    final parsed = DateTime.tryParse('${mark['timestamp_utc'] ?? ''}');
+    if (parsed == null) return ('--:--', '${mark['fecha'] ?? ''}');
+    final lima = parsed.toUtc().subtract(const Duration(hours: 5));
+    final hour = '${lima.hour.toString().padLeft(2, '0')}:${lima.minute.toString().padLeft(2, '0')}';
+    final date = '${lima.year}-${lima.month.toString().padLeft(2, '0')}-${lima.day.toString().padLeft(2, '0')}';
+    return (hour, '${mark['fecha'] ?? date}');
+  }
 }
 
 class _AttendanceData {
