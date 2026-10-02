@@ -108,6 +108,8 @@ const options = {
             longitud: { type: 'number' },
             radio_permitido_metros: { type: 'number' },
             estado: { type: 'string', enum: ['ACTIVA', 'INACTIVA'] },
+            qr_valor: { type: 'string', description: 'Solo ADMIN/SUPERVISOR; nunca para COLABORADOR' },
+            qr_png_url: { type: 'string', example: '/api/sedes/1/qr?formato=png' },
           },
         },
         SedeInput: {

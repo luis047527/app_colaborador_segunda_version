@@ -63,6 +63,14 @@ fi
 echo "Aplicando 05_seed_demo_colaboradores_horarios.sql..."
 docker exec -i "${container}" mysql "-u${db_user}" "-p${db_password}" "-D${database}" < "${SQL_DIR}/05_seed_demo_colaboradores_horarios.sql"
 
+# 06 QR estático (idempotent: solo si falta la columna)
+if [[ "$(has_column 'sedes' 'qr_valor')" == "0" ]]; then
+  echo "Aplicando 06_qr_estatico.sql (sedes.qr_valor + backfill)..."
+  docker exec -i "${container}" mysql "-u${db_user}" "-p${db_password}" "-D${database}" < "${SQL_DIR}/06_qr_estatico.sql"
+else
+  echo "Columna sedes.qr_valor ya existe; 06 no necesita re-aplicarse."
+fi
+
 echo "Base de datos lista."
 "${mysql[@]}" -e 'SHOW TABLES;'
 "${mysql[@]}" -e 'SELECT id, email, rol, estado FROM usuarios ORDER BY id;'

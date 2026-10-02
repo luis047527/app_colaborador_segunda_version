@@ -14,6 +14,7 @@ const baseRow = () => ({
   longitud: '-77.0427930',
   radio_permitido_metros: '100.00',
   estado: 'ACTIVA',
+  qr_valor: 'LUMIBELL-SEDE-1-AAAA1111',
   created_at: '2026-01-01 00:00:00',
   updated_at: '2026-01-01 00:00:00',
 });
@@ -68,11 +69,11 @@ beforeEach(() => {
   appliedRow = baseRow();
 });
 
-const token = () => jwt.sign({ sub: 1, rol: 'ADMINISTRADOR' }, 'test-secret');
-async function call(method, url, body, withToken = true) {
+const token = (rol = 'ADMINISTRADOR') => jwt.sign({ sub: 1, rol }, 'test-secret');
+async function call(method, url, body, withToken = true, rol = 'ADMINISTRADOR') {
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (withToken) headers.Authorization = `Bearer ${token()}`;
+  if (withToken) headers.Authorization = `Bearer ${token(rol)}`;
   const res = await fetch(`${base}${url}`, {
     method,
     headers,
@@ -150,6 +151,20 @@ describe('/api/sedes', () => {
     assert.equal(status, 200);
     assert.equal(body.nombre, 'Sede Sur');
     assert.equal(body.estado, 'INACTIVA');
+  });
+
+  it('qr_valor oculto a COLABORADOR, visible a ADMIN/SUPERVISOR', async () => {
+    const listaColab = await call('GET', '/api/sedes/', undefined, true, 'COLABORADOR');
+    assert.equal(listaColab.status, 200);
+    assert.ok(!('qr_valor' in listaColab.body[0]));
+    const unoColab = await call('GET', '/api/sedes/1', undefined, true, 'COLABORADOR');
+    assert.ok(!('qr_valor' in unoColab.body));
+    assert.ok(!('qr_png_url' in unoColab.body));
+    const unoAdmin = await call('GET', '/api/sedes/1', undefined, true, 'ADMINISTRADOR');
+    assert.equal(unoAdmin.body.qr_valor, 'LUMIBELL-SEDE-1-AAAA1111');
+    assert.equal(unoAdmin.body.qr_png_url, '/api/sedes/1/qr?formato=png');
+    const unoSup = await call('GET', '/api/sedes/1', undefined, true, 'SUPERVISOR');
+    assert.ok('qr_valor' in unoSup.body);
   });
 
   it('DELETE 200 lógico + 404', async () => {

@@ -23,12 +23,18 @@ const ESPERADAS = {
   '/api/empleados/': ['get', 'post'],
   '/api/empleados/me': ['get'],
   '/api/empleados/me/horario': ['get'],
+  '/api/empleados/me/sede': ['get'],
   '/api/empleados/{id}': ['put'],
   '/api/empleados/{id}/horario': ['get'],
   '/api/sedes/': ['get', 'post'],
   '/api/sedes/{id}': ['get', 'put', 'delete'],
+  '/api/sedes/{id}/qr': ['post', 'get'],
   '/api/horarios/': ['get', 'post'],
   '/api/horarios/{id}': ['get'],
+  '/api/hora/': ['get'],
+  '/api/marcaciones/': ['post'],
+  '/api/marcaciones/mio': ['get'],
+  '/api/marcaciones/qr/sede/{sedeId}': ['post'],
 };
 
 describe('OpenAPI', () => {

@@ -73,14 +73,18 @@ solo guarda datos crudos + validaciones estructurales.
 - Día `DESCANSO` o `VACACIONES`: requeridas = 0, no genera balance negativo; por definir detalles para la semana 4
   marcar se rechaza (o registra `DESCANSO`).
 
-## 6. GPS y QR (piloto)
+## 6. GPS y QR (Semana 2: rechazo estricto)
 
-- **GPS flexible:** Flutter envía lat/lon; el backend calcula haversine contra la
-  sede (`latitud, longitud, radio_permitido_metros`). Fuera de radio o sin
-  coordenadas → se **acepta** con `fuera_radio = 1` / motivo informativo. No se
-  rechaza en el piloto (emuladores e interiores).
-- **QR estático en MVP:** payload `LUMIBELL-SEDE-{id}` debe coincidir con la sede
-  enviada.
+- **GPS estricto:** Flutter pre-valida bajo demanda (`GET /api/empleados/me/sede`
+  + botón `Validar mi ubicación`); el backend re-valida como autoridad en
+  `POST /api/marcaciones` con haversine contra la sede (`latitud, longitud,
+  radio_permitido_metros`). Fuera de radio → se **rechaza** con `403` y no
+  genera fila. Sin coordenadas → `400`. (Supersede piloto flexible que aceptaba
+  con `fuera_radio = 1`.)
+- **QR estático en MVP:** el valor escaneado (`qr_token`) debe coincidir por
+  igualdad exacta con `sedes.qr_valor` (formato `LUMIBELL-SEDE-{id}-{8 hex}`,
+  ver `sql/06_qr_estatico.sql`). Sin `qr_valor` generado o valor distinto →
+  `400`, sin fila.
 
 ## 7. Ejemplos completos
 

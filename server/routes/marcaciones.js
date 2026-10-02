@@ -8,6 +8,23 @@ const { crearQr, registrar } = require('../services/marcaciones');
 const router = express.Router();
 router.use(verificarToken);
 
+/**
+ * @openapi
+ * /api/marcaciones/qr/sede/{sedeId}:
+ *   post:
+ *     summary: (DEPRECATED) Generar QR dinámico temporal
+ *     description: Reemplazado por QR estático (`POST /api/sedes/{id}/qr`). El QR dinámico ya no valida marcaciones. Se conserva hasta migrar la pantalla admin.
+ *     deprecated: true
+ *     tags: [Marcaciones]
+ *     parameters:
+ *       - in: path
+ *         name: sedeId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: QR dinámico (ya no válido para marcar) }
+ *       404: { description: Sede no encontrada o inactiva }
+ */
 // El administrador muestra este valor como QR en la sede. Vence en dos minutos.
 router.post('/qr/sede/:sedeId', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), async (req, res) => {
   try {
@@ -17,6 +34,26 @@ router.post('/qr/sede/:sedeId', requerirRol('ADMINISTRADOR', 'SUPERVISOR'), asyn
   } catch (_) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
+/**
+ * @openapi
+ * /api/marcaciones/mio:
+ *   get:
+ *     summary: Historial de marcaciones del colaborador autenticado
+ *     tags: [Marcaciones]
+ *     parameters:
+ *       - in: query
+ *         name: desde
+ *         schema: { type: string, format: date }
+ *         description: Fecha inicial (YYYY-MM-DD), default 30 días antes de `hasta`
+ *       - in: query
+ *         name: hasta
+ *         schema: { type: string, format: date }
+ *         description: Fecha final (YYYY-MM-DD), default hoy
+ *     responses:
+ *       200: { description: Rango + lista de marcaciones con sede }
+ *       400: { description: desde posterior a hasta }
+ *       404: { description: Usuario sin perfil de colaborador }
+ */
 router.get('/mio', requerirRol('COLABORADOR'), async (req, res) => {
   const hasta = /^\d{4}-\d{2}-\d{2}$/.test(req.query.hasta || '')
     ? req.query.hasta
@@ -48,6 +85,31 @@ router.get('/mio', requerirRol('COLABORADOR'), async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/marcaciones/:
+ *   post:
+ *     summary: Registrar marcación (QR estático + GPS)
+ *     description: Valida QR por igualdad contra `sedes.qr_valor` y ubicación por haversine. Fuera de radio se rechaza con 403. Solo COLABORADOR.
+ *     tags: [Marcaciones]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [qr_token, latitud, longitud]
+ *             properties:
+ *               qr_token: { type: string, example: 'LUMIBELL-SEDE-1-A1B2C3D4' }
+ *               latitud: { type: number }
+ *               longitud: { type: number }
+ *     responses:
+ *       201: { description: Marcación creada + siguiente tipo esperado }
+ *       400: { description: Sin sede, sede no disponible/sin QR, QR inválido o GPS inválido }
+ *       401: { description: Token no proporcionado o inválido }
+ *       403: { description: Colaborador no activo o fuera del radio permitido }
+ *       409: { description: Jornada ya completa }
+ */
 router.post('/', requerirRol('COLABORADOR'), async (req, res) => {
   try {
     const r = await registrar(pool, req.usuario.sub, req.body || {});
