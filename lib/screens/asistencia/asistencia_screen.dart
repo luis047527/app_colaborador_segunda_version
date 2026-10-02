@@ -38,9 +38,17 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     } on ApiException {
       schedule = null;
     }
-    final site = employee['sede_id'] == null ? null : Map<String, dynamic>.from(
-      await widget.api.get('/api/sedes/${employee['sede_id']}'),
-    );
+    Map<String, dynamic>? site;
+    String? siteError;
+    try {
+      // Un 200 confirma que el empleado y su sede están disponibles.
+      // Este contrato no expone estado ni el valor secreto del QR.
+      site = Map<String, dynamic>.from(await widget.api.get('/api/empleados/me/sede'));
+    } on ApiException catch (error) {
+      siteError = error.message;
+    } catch (_) {
+      siteError = 'No se pudo consultar tu sede. Revisa tu conexión y vuelve a intentarlo.';
+    }
     final day = schedule?['dia'] is Map ? Map<String, dynamic>.from(schedule!['dia'] as Map) : null;
     final date = schedule?['fecha']?.toString();
     final accepted = <String>[];
@@ -51,11 +59,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       )..sort((a, b) => (a['id'] as num).compareTo(b['id'] as num));
       accepted.addAll(rows.where((row) => row['resultado'] == 'ACEPTADA').map((row) => '${row['tipo']}'));
     }
-    return _AttendanceData(employee: employee, schedule: schedule, site: site,
+    return _AttendanceData(employee: employee, schedule: schedule, site: site, siteError: siteError,
       selection: SeleccionMarcacion(date == null ? null : day, accepted));
   }
 
-  Future<void> _validateLocation(Map<String, dynamic> site) async {
+  Future<void> _validateLocation() async {
     if (_validating || _registering) return;
     setState(() {
       _validating = true;
@@ -64,6 +72,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       _selectedType = null;
     });
     try {
+      final current = await _load();
+      if (!mounted) return;
+      setState(() => _future = Future.value(current));
+      final site = current.site;
+      if (site == null) throw ApiException(current.siteError ?? 'Sede no disponible.');
       final latitude = double.tryParse('${site['latitud']}');
       final longitude = double.tryParse('${site['longitud']}');
       final radius = double.tryParse('${site['radio_permitido_metros']}');
@@ -112,8 +125,8 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       final current = await _load();
       if (!mounted) return;
       setState(() => _future = Future.value(current));
+      if (current.site == null) throw ApiException(current.siteError ?? 'Sede no disponible.');
       if (current.site?['id'] != previous.site?['id'] ||
-          current.site?['estado'] != 'ACTIVA' ||
           current.site?['latitud'] != previous.site?['latitud'] ||
           current.site?['longitud'] != previous.site?['longitud'] ||
           current.site?['radio_permitido_metros'] != previous.site?['radio_permitido_metros'] ||
@@ -173,11 +186,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   Widget _content(_AttendanceData data) {
     final schedule = data.schedule;
     final site = data.site;
-    final siteActive = site != null && site['estado'] == 'ACTIVA';
-    final locationValid = _validatedPosition != null;
+    final siteAvailable = site != null;
+    final locationValid = siteAvailable && _validatedPosition != null;
     final selection = data.selection;
     final canSelect = locationValid && !_validating && !_registering;
-    final canScan = canSelect && siteActive && selection.compatible && _selectedType != null && _selectedType == selection.next;
+    final canScan = canSelect && selection.compatible && _selectedType != null && _selectedType == selection.next;
     final day = schedule?['dia'] is Map ? Map<String, dynamic>.from(schedule!['dia'] as Map) : null;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -189,24 +202,34 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         LumibellCard(
           padding: EdgeInsets.zero,
           child: Column(children: [
-            _infoRow(Icons.storefront_outlined, LumibellColors.peachSoft, LumibellColors.copper, 'Sede asignada', '${site?['nombre'] ?? 'Sin sede asignada'}'),
+            _infoRow(Icons.storefront_outlined, LumibellColors.peachSoft, LumibellColors.copper, 'Sede asignada', '${site?['nombre'] ?? 'Sede no disponible'}'),
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(14),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Semantics(liveRegion: true, child: Text(
-                  site == null ? 'Solicita al administrador que te asigne una sede.'
-                    : !siteActive ? 'Tu sede está inactiva. Contacta al administrador.'
+                  site == null ? (data.siteError ?? 'Solicita al administrador que revise tu sede asignada.')
                     : _validating ? 'Validando tu ubicación…'
                     : _locationError ?? (locationValid ? 'Ubicación lista para registrar — ${site['nombre']}' : 'Valida tu ubicación para habilitar el escaneo.'),
-                  style: TextStyle(color: _locationError != null || !siteActive ? LumibellColors.danger : locationValid ? LumibellColors.success : LumibellColors.navySoft),
+                  style: TextStyle(color: _locationError != null || !siteAvailable ? LumibellColors.danger : locationValid ? LumibellColors.success : LumibellColors.navySoft),
                 )),
                 const SizedBox(height: 12),
                 FilledButton.icon(
-                  onPressed: !siteActive || _validating || _registering ? null : () => _validateLocation(site),
+                  onPressed: !siteAvailable || _validating || _registering ? null : _validateLocation,
                   icon: _validating ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.my_location_rounded),
                   label: Text(_validating ? 'Validando ubicación…' : locationValid ? 'Volver a validar ubicación' : 'Validar mi ubicación'),
                 ),
+                if (!siteAvailable)
+                  TextButton.icon(
+                    onPressed: _validating || _registering ? null : () => setState(() {
+                      _validatedPosition = null;
+                      _selectedType = null;
+                      _locationError = null;
+                      _future = _load();
+                    }),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Reintentar consulta de sede'),
+                  ),
               ]),
             ),
           ]),
@@ -416,7 +439,8 @@ class MarcacionResultadoScreen extends StatelessWidget {
 }
 
 class _AttendanceData {
-  const _AttendanceData({required this.employee, required this.schedule, required this.site, required this.selection});
+  const _AttendanceData({required this.employee, required this.schedule, required this.site, required this.selection, this.siteError});
+  final String? siteError;
   final SeleccionMarcacion selection;
   final Map<String, dynamic> employee;
   final Map<String, dynamic>? schedule;
