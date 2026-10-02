@@ -18,7 +18,15 @@ function Has-Table($name) {
   (docker exec $container mysql $mysqlUser $mysqlPassword $mysqlDatabase '-Nse' "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$database' AND table_name='$name';").Trim()
 }
 function Has-Column($table, $col) {
-  (docker exec $container mysql $mysqlUser $mysqlPassword $mysqlDatabase '-Nse' "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$database' AND table_name='$table' AND column_name='$col';").Trim()
+  $columnCount = docker exec $container mysql $mysqlUser $mysqlPassword $mysqlDatabase '-Nse' "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$database' AND table_name='$table' AND column_name='$col';"
+  if ($LASTEXITCODE -ne 0) {
+    throw "No se pudo comprobar la columna '$table.$col'."
+  }
+  $columnCount = ("$columnCount").Trim()
+  if ($columnCount -notin @('0', '1')) {
+    throw "Respuesta inesperada al comprobar la columna '$table.$col'."
+  }
+  return $columnCount
 }
 
 $tables = Has-Table 'usuarios'
@@ -57,6 +65,18 @@ if ($marc -eq '0') {
 
 Write-Host 'Aplicando 05_seed_demo...'
 Get-Content -Raw "$PSScriptRoot\..\sql\05_seed_demo_colaboradores_horarios.sql" | docker exec -i $container mysql $mysqlUser $mysqlPassword $mysqlDatabase
+
+# 06 QR estatico: aplicar solo si falta la columna para conservar los QR existentes.
+$qrColumn = Has-Column 'sedes' 'qr_valor'
+if ($qrColumn -eq '0') {
+    Write-Host 'Aplicando 06_qr_estatico.sql (sedes.qr_valor y valores iniciales)...'
+    Get-Content -Raw "$PSScriptRoot\..\sql\06_qr_estatico.sql" | docker exec -i $container mysql $mysqlUser $mysqlPassword $mysqlDatabase
+    if ($LASTEXITCODE -ne 0) {
+        throw 'No se pudo completar 06_qr_estatico.sql. Revisa el error de MySQL antes de continuar.'
+    }
+} else {
+    Write-Host 'Columna sedes.qr_valor ya existe; 06 no necesita re-aplicarse.'
+}
 
 Write-Host 'Base de datos lista.'
 docker exec $container mysql $mysqlUser $mysqlPassword $mysqlDatabase '-e' "SHOW TABLES;"
