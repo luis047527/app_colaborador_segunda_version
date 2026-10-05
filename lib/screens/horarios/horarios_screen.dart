@@ -26,7 +26,7 @@ class _HorariosScreenState extends State<HorariosScreen> {
     super.dispose();
   }
 
-  void _refresh() => setState(() => _employees = _load());
+  void _refresh() => setState(() { _employees = _load(); });
 
   List<dynamic> _filtered(List<dynamic> rows) => rows.where((item) {
     final row = item as Map;
