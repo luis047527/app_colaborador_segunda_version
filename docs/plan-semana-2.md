@@ -116,3 +116,16 @@ QR dinámico, modo offline, cálculo de tardanza/balance (Semana 3), vacaciones 
 3. `asistencia_screen.dart` — pre-validación GPS (actividad 2).
    - Botón `Validar mi ubicación`: `GET /api/empleados/me/sede` + GPS una vez + haversine local; mensajes según plan §2; solo entonces habilita `Escanear QR`. Mantener body `{ qr_token, latitud, longitud }` y respuesta `{ marcacion, siguiente_marcacion }` sin cambios.
 4. Verificar: `flutter analyze` sin errores; flujo extremo a extremo (GPS ok + QR nuevo → `201`; QR viejo → `400`; fuera radio → `403`).
+
+## Pruebas Realizadas
+
+Hasta la fecha (29 Oct 26) hemos realizado pruebas de marcacion y segun los criterios de aceptacion de semana 2 en el documento Alcance Funcional MVP 1 mes, se detalla:
+- CA-01, 02 y 07 : completo 
+- CA-03, 04, 05, 06 y 08 : incompleto
+
+Se deben hacer mas pruebas para los criterios de aceptacion faltantes antes de pasar a la semana 3.
+
+Se encontro el siguiente feedback:
+- No se puede completar marcacion de tiempo parcial. Mensaje de error: la salida de jornadas sin refrigerio no esta disponible. Se debe revisar este caso.
+- Se encontraron y se resolvieron problemas de conexion entre el celular y el servidor para las pruebas locales, que tienen que ver con configuracion de Flutter con el nombre del dispositivo o con la IP del servidor. Estas configuraciones son necesarias solo en entorno de desarrollo.
+- Se sugiere agregar la opcion de setear la ubicacion de la sede en la interfaz del administrador. No se considerara para esta semana y se va a evaluar para las siguientes.
