@@ -30,7 +30,7 @@ class _ColaboradoresScreenState extends State<ColaboradoresScreen> {
     super.dispose();
   }
 
-  void _refresh() => setState(() => _future = _load());
+  void _refresh() => setState(() { _future = _load(); });
 
   Future<void> _openCreate() async {
     final created = await Navigator.push<bool>(

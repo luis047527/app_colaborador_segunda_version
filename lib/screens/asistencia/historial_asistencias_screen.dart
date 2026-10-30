@@ -91,7 +91,7 @@ class _HistorialAsistenciasScreenState extends State<HistorialAsistenciasScreen>
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const LumibellLoadingView(message: 'Cargando asistencias...');
-          if (snapshot.hasError) return LumibellStateView(icon: Icons.cloud_off_rounded, title: 'No se pudo cargar el historial', message: '${snapshot.error}', actionLabel: 'Reintentar', onAction: () => setState(() => _future = _load()));
+          if (snapshot.hasError) return LumibellStateView(icon: Icons.cloud_off_rounded, title: 'No se pudo cargar el historial', message: '${snapshot.error}', actionLabel: 'Reintentar', onAction: () => setState(() { _future = _load(); }));
           final rows = snapshot.data ?? const [];
           final grouped = _group(rows);
           if (rows.isEmpty) return const LumibellStateView(icon: Icons.event_note_outlined, title: 'Aún no hay marcaciones', message: 'Tus entradas y salidas aparecerán aquí después de registrar una marcación.');

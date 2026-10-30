@@ -24,7 +24,7 @@ class _MiHorarioScreenState extends State<MiHorarioScreen> {
     return Map<String, dynamic>.from(await widget.api.get('/api/empleados/${employee['id']}/horario'));
   }
 
-  void _reload() => setState(() => _today = _loadToday());
+  void _reload() => setState(() { _today = _loadToday(); });
 
   Future<void> _showWeekly() async {
     try {

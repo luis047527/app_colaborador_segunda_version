@@ -4,7 +4,7 @@
 
 -- Idempotente: puede ejecutarse múltiples veces (fresh init via docker-entrypoint y re-apply via scripts).
 INSERT INTO sedes (nombre, direccion, latitud, longitud, radio_permitido_metros)
-SELECT 'Sede Principal Lima', 'Av. Principal 123, Lima', -12.0463740, -77.0427930, 100.00
+SELECT 'Sede Principal Lima', 'Av. Principal 123, Lima', -12.06497, -75.20384, 50.00
 WHERE NOT EXISTS (SELECT 1 FROM sedes WHERE nombre = 'Sede Principal Lima');
 
 INSERT INTO usuarios (nombre, apellido, email, password_hash, rol)

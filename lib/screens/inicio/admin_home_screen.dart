@@ -51,7 +51,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       bottom: false,
       child: RefreshIndicator(
         color: LumibellColors.copper,
-        onRefresh: () async { setState(() => _employees = _loadEmployees()); await _employees; },
+        onRefresh: () async { setState(() { _employees = _loadEmployees(); }); await _employees; },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),

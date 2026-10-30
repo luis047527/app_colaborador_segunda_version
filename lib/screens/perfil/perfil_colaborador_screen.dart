@@ -26,7 +26,7 @@ class _PerfilColaboradorScreenState extends State<PerfilColaboradorScreen> {
   Future<Map<String, dynamic>> _load() async =>
       Map<String, dynamic>.from(await widget.api.get('/api/empleados/me'));
 
-  void _reload() => setState(() => _profile = _load());
+  void _reload() => setState(() { _profile = _load(); });
 
   Future<void> _changePassword() async {
     final controller = TextEditingController();

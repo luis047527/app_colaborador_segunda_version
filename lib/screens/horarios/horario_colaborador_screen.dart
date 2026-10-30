@@ -93,7 +93,7 @@ class _HorarioColaboradorScreenState extends State<HorarioColaboradorScreen> {
       future: _schedule,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const LumibellLoadingView(message: 'Cargando horario...');
-        if (snapshot.hasError) return LumibellStateView(icon: Icons.event_busy_rounded, title: 'No se pudo cargar el horario', message: '${snapshot.error}', actionLabel: 'Reintentar', onAction: () => setState(() => _schedule = _loadSchedule()));
+        if (snapshot.hasError) return LumibellStateView(icon: Icons.event_busy_rounded, title: 'No se pudo cargar el horario', message: '${snapshot.error}', actionLabel: 'Reintentar', onAction: () => setState(() { _schedule = _loadSchedule(); }));
         return ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 28), children: [
           _employeeHeader(),
           const SizedBox(height: 18),

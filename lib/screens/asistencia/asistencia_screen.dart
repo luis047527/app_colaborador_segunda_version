@@ -106,7 +106,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     try {
       final current = await _load();
       if (!mounted) return;
-      setState(() => _future = Future.value(current));
+      setState(() { _future = Future.value(current); });
       final site = current.site;
       if (site == null) throw ApiException(current.siteError ?? 'Sede no disponible.');
       final latitude = double.tryParse('${site['latitud']}');
@@ -156,7 +156,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       // Volver a consultar tras escanear evita usar una secuencia antigua.
       final current = await _load();
       if (!mounted) return;
-      setState(() => _future = Future.value(current));
+      setState(() { _future = Future.value(current); });
       if (current.site == null) throw ApiException(current.siteError ?? 'Sede no disponible.');
       if (current.site?['id'] != previous.site?['id'] ||
           current.site?['latitud'] != previous.site?['latitud'] ||
@@ -173,7 +173,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       }));
       if (!mounted) return;
       await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => MarcacionResultadoScreen.success(response)));
-      setState(() => _future = _load());
+      setState(() { _future = _load(); });
     } on ApiException catch (error) {
       if (!mounted) return;
       await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => MarcacionResultadoScreen.error(error.message)));
@@ -208,7 +208,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const LumibellLoadingView(message: 'Preparando tu jornada...');
-        if (snapshot.hasError) return LumibellStateView(icon: Icons.cloud_off_rounded, title: 'No se pudo cargar', message: '${snapshot.error}', actionLabel: 'Reintentar', onAction: () => setState(() => _future = _load()));
+        if (snapshot.hasError) return LumibellStateView(icon: Icons.cloud_off_rounded, title: 'No se pudo cargar', message: '${snapshot.error}', actionLabel: 'Reintentar', onAction: () => setState(() { _future = _load(); }));
         return _content(snapshot.data!);
       },
     ),
